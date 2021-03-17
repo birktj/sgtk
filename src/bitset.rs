@@ -1,0 +1,162 @@
+use crate::seq::*;
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Bitset16 {
+    bitset: u16
+}
+
+impl Bitset16 {
+    pub const fn new() -> Bitset16 {
+        Bitset16 {
+            bitset: 0
+        }
+    }
+
+    pub const fn from_u16(bitset: u16) -> Bitset16 {
+        Bitset16 {
+            bitset
+        }
+    }
+
+    pub const fn to_u16(self) -> u16 {
+        self.bitset
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.bitset == 0
+    }
+
+    pub const fn get(&self, i: usize) -> bool {
+        (self.bitset & (1 << i)) > 0
+    }
+
+    pub fn set(&mut self, i: usize) {
+        self.bitset |= 1 << i;
+    }
+
+    pub fn clear(&mut self, i: usize) {
+        self.bitset &= !(1 << i);
+    }
+
+    pub fn smallest(&self) -> Option<usize> {
+        if self.bitset == 0 {
+            None
+        } else {
+            Some(self.bitset.trailing_zeros() as usize)
+        }
+    }
+
+    pub fn count(&self) -> usize {
+        self.bitset.count_ones() as usize
+    }
+
+    pub fn intersection(&self, other: &Bitset16) -> Bitset16 {
+        Bitset16 {
+            bitset: self.bitset & other.bitset
+        }
+    }
+
+    pub fn enumerate(maxn: usize) -> IterEnumerate16 {
+        IterEnumerate16 {
+            maxval: ((1u32 << maxn) - 1) as u16,
+            curr: 0,
+            finished: false,
+            last: None,
+        }
+    }
+
+    pub fn to_seq(&self) -> Seq16 {
+        let mut seq = Seq16::new();
+
+        for x in self.into_iter() {
+            seq.push(x);
+        }
+
+        seq
+    }
+
+    pub fn shuffle(&mut self, permutation: &Seq16) {
+        let old = *self;
+        self.bitset = 0;
+        
+        for (i, j) in permutation.iter().enumerate() {
+            if old.get(i) {
+                self.set(*j as usize);
+            }
+        }
+    }
+}
+
+impl IntoIterator for Bitset16 {
+    type Item = usize;
+    type IntoIter = IterBitset16;
+
+    fn into_iter(self) -> IterBitset16 {
+        IterBitset16 {
+            bitset: self.bitset,
+            i: 0
+        }
+    }
+}
+
+pub struct IterBitset16 {
+    bitset: u16,
+    i: usize
+}
+
+impl Iterator for IterBitset16 {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        if self.bitset != 0 {
+            let di = self.bitset.trailing_zeros() as usize;
+            self.bitset = (self.bitset >> di) ^ 1;
+            self.i += di;
+            Some(self.i)
+        } else {
+            None 
+        }
+        /*
+        while self.i < 16 {
+            if self.bitset & (1 << self.i) > 0 {
+                self.i += 1;
+                return Some(self.i - 1)
+            }
+            self.i += 1
+        }
+        None
+        */
+    }
+}
+
+impl std::fmt::Debug for Bitset16 {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_set().entries(self.into_iter()).finish()
+    }
+}
+
+pub struct IterEnumerate16 {
+    maxval: u16,
+    curr: u16,
+    finished: bool,
+    last: Option<Bitset16>,
+}
+
+impl Iterator for IterEnumerate16 {
+    type Item = Bitset16;
+
+    fn next(&mut self) -> Option<Bitset16> {
+        if self.finished {
+            return self.last.take()
+        }
+        let res = Bitset16::from_u16(self.curr);
+        self.curr += 1;
+
+        if self.curr >= self.maxval {
+            self.finished = true;
+            self.last = Some(Bitset16::from_u16(self.curr));
+        }
+
+        Some(res)
+    }
+}
