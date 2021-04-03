@@ -31,7 +31,7 @@ pub fn from_graph6(mut s: &str) -> Graph16 {
     for u in 1..n {
         for v in 0..u {
             if bits.next().unwrap() == 1 {
-                graph = graph.add_edge(u, v);
+                graph.add_edge(u, v);
             }
         }
     }

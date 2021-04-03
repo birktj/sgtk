@@ -9,9 +9,9 @@ pub fn graph16(n: usize) -> Graph16 {
     let edge_count = ((n*(n+1) / 2) as f32 * edge_ratio) as usize;
 
     for _ in 0..edge_count {
-        let u = rand::thread_rng().gen_range(0..n);
-        let v = rand::thread_rng().gen_range(0..n);
-        graph = graph.add_edge(u, v);
+        let u = rand::thread_rng().gen_range(1..n);
+        let v = rand::thread_rng().gen_range(0..u);
+        graph.add_edge(u, v);
     }
 
     graph

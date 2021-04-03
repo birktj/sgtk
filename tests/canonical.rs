@@ -6,7 +6,8 @@ fn test_canon_random_graph(n: usize) {
 
 fn test_canon_random_perm(n: usize, graph1: Graph16) {
     let perm = random::permutation(n);
-    let graph2 = graph1.shuffle2(&perm);
+    let mut graph2 = graph1;
+    graph2.shuffle2(&perm);
 
     let canon1 = graph1.to_canonical();
     let canon2 = graph2.to_canonical();

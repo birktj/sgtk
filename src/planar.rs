@@ -11,7 +11,11 @@ fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator
     })
     //graph.difference(h).subgraph(h.nodes()).edges()
     .map(|(u, v)| {
-        Graph16::new(0).add_node(u).add_node(v).add_edge(u, v)
+        let mut g = Graph16::new(0);
+        g.add_node(u);
+        g.add_node(v);
+        g.add_edge(u, v);
+        g
     }).chain(graph.subgraph(h.nodes().invert()).components()
         .map(move |mut c| {
             /*
@@ -20,7 +24,8 @@ fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator
             }
             c
             */
-            c.union(&graph.neighbouring(c.nodes()).bipartite_split(c.nodes(), h.nodes()))
+            c.union(&graph.neighbouring(c.nodes()).bipartite_split(c.nodes(), h.nodes()));
+            c
         }))
 }
 
@@ -114,7 +119,8 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             let u = attachments.smallest().unwrap();
             let v = bridge.siblings(u).smallest().unwrap();
             embedding.embed_free_edge(u, v);
-            h = h.add_node(v).add_edge(u, v);
+            h.add_node(v);
+            h.add_edge(u, v);
 
             /*
             if bridge.siblings(u).count() == 1 {
@@ -199,7 +205,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             //dbg!(embedding.face(face).collect::<Vec<_>>());
 
             let new_faces = embedding.embed_bisecting_path(face, &path);
-            h = h.union(&Graph16::from_path(&path));
+            h.union(&Graph16::from_path(&path));
 
             //dbg!(&embedding);
 

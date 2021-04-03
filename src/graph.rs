@@ -101,7 +101,9 @@ impl Graph16 {
         for (u, v) in path.iter().zip(path.iter().skip(1)) {
             let u = usize::from(*u);
             let v = usize::from(*v);
-            graph = graph.add_node(u).add_node(v).add_edge(u, v);
+            graph.add_node(u);
+            graph.add_node(v);
+            graph.add_edge(u, v);
         }
         graph
     }
@@ -131,11 +133,10 @@ impl Graph16 {
         println!("}}");
     }
 
-    pub fn add_node(mut self, u: usize) -> Graph16 {
+    pub fn add_node(&mut self, u: usize) {
         //debug_assert!(u == 0 || self.has_node(u-1));
         //debug_assert!(!self.has_node(u));
         self.g[u] |= 1 << u;
-        self
     }
 
     fn trim(mut self) -> Graph16 {
@@ -147,7 +148,7 @@ impl Graph16 {
                 j += 1;
             }
             if i != j && j < 15 {
-                self = self.swap_nodes(i, j);
+                self.swap_nodes(i, j);
             }
             i += 1;
             j += 1;
@@ -156,13 +157,12 @@ impl Graph16 {
     }
 
     #[inline]
-    pub fn del_node(mut self, u: usize) -> Graph16 {
+    pub fn del_node(&mut self, u: usize) {
         self.g[u] = 0;
         for i in 0..16 {
             self.g[i] &= !(1 << u);
         }
         //self.trim()
-        self
     }
 
     #[inline]
@@ -171,38 +171,33 @@ impl Graph16 {
     }
 
     #[inline]
-    pub const fn add_edge(mut self, u: usize, v: usize) -> Graph16 {
-        // commented to keep the function const
-        // debug_assert!(u != v);
+    pub fn add_edge(&mut self, u: usize, v: usize) {
+        debug_assert!(u != v);
         self.g[u] |= 1 << v;
         self.g[v] |= 1 << u;
-        self
     }
 
     #[inline]
-    pub fn add_edges(mut self, u: usize, edges: Bitset16) -> Graph16 {
+    pub fn add_edges(&mut self, u: usize, edges: Bitset16) {
         self.g[u] |= edges.to_u16();
         for v in edges {
             self.g[v] |= 1 << u;
         }
-        self
     }
 
     #[inline]
-    pub fn del_edge(mut self, u: usize, v: usize) -> Graph16 {
+    pub fn del_edge(&mut self, u: usize, v: usize) {
         debug_assert!(u != v);
         self.g[u] &= !(1 << v);
         self.g[v] &= !(1 << u);
-        self
     }
 
     #[inline]
-    pub fn del_edges(mut self, u: usize, mut edges: Bitset16) -> Graph16 {
+    pub fn del_edges(&mut self, u: usize, mut edges: Bitset16) {
         self.g[u] &= !edges.to_u16();
         for v in edges {
             self.g[v] &= !(1 << u);
         }
-        self
     }
 
     #[inline]
@@ -211,26 +206,25 @@ impl Graph16 {
     }
 
     #[inline]
-    pub fn contract_edge(mut self, u: usize, v: usize) -> Graph16 {
+    pub fn contract_edge(&mut self, u: usize, v: usize) {
         self.g[u] |= self.g[v];
         for i in 0..16 {
             self.g[i] |= ((self.g[i] & (1 << v)) >> v) << u;
         }
-        self.del_node(v)
+        self.del_node(v);
     }
 
     #[inline]
-    pub fn swap_nodes(mut self, u: usize, v: usize) -> Graph16 {
+    pub fn swap_nodes(&mut self, u: usize, v: usize) {
         self.g.swap(u, v);
         for i in 0..16 {
             let ue = (self.g[i] & (1 << u)) >> u;
             let ve = (self.g[i] & (1 << v)) >> v;
             self.g[i] = (self.g[i] & !((1 << u) | (1 << v))) | (ue << v) | (ve << u);
         }
-        self
     }
 
-    pub fn shuffle1(mut self, permutation: &Seq16) -> Graph16 {
+    pub fn shuffle1(&mut self, permutation: &Seq16) {
         let mut visited = Bitset16::new();
 
         for i in 0..permutation.len() {
@@ -242,15 +236,14 @@ impl Graph16 {
             let mut j = permutation[i] as usize;
             while j != i {
                 visited.set(j);
-                self = self.swap_nodes(prev, j);
+                self.swap_nodes(prev, j);
                 prev = j;
                 j = permutation[j] as usize;
             }
         }
-        self
     }
 
-    pub fn shuffle2(mut self, permutation: &Seq16) -> Graph16 {
+    pub fn shuffle2(&mut self, permutation: &Seq16) {
         let old = self.g;
 
         for (i, j) in permutation.iter().enumerate() {
@@ -258,8 +251,6 @@ impl Graph16 {
             bitset.shuffle(permutation);
             self.g[*j as usize] = bitset.to_u16();
         }
-
-        self
     }
 
     #[inline]
@@ -330,11 +321,10 @@ impl Graph16 {
     }
 
     #[inline]
-    pub fn union(mut self, other: &Graph16) -> Graph16 {
+    pub fn union(&mut self, other: &Graph16) {
         for i in 0..16 {
             self.g[i] = self.g[i] | other.g[i];
         }
-        self
     }
 
     #[inline]
@@ -434,11 +424,12 @@ impl Graph16 {
            if !vis {
                graph.g[u] |= 1 << u;
                graph.g[v] |= 1 << v;
-               graph = graph.add_edge(u, v);
+               graph.add_edge(u, v);
            } 
         });
+        graph
 
-        graph.trim()
+        //graph.trim()
     }
 
     pub fn cycle(&self) -> Option<Graph16> {
@@ -452,16 +443,17 @@ impl Graph16 {
         impl Dfs {
             fn dfs(&mut self, u: usize) -> Option<usize> {
                 if self.visited.get(u) {
-                    self.curr = self.curr.add_node(u);
+                    self.curr.add_node(u);
                     self.found = true;
                     return Some(u)
                 }
                 self.visited.set(u);
 
                 for v in self.graph.siblings(u) {
-                    self.graph = self.graph.del_edge(u, v);
+                    self.graph.del_edge(u, v);
                     if let Some(w) = self.dfs(v) {
-                        self.curr = self.curr.add_node(u).add_edge(u, v);
+                        self.curr.add_node(u);
+                        self.curr.add_edge(u, v);
                         if u != w {
                             return Some(w)
                         }
@@ -594,9 +586,19 @@ impl Graph16 {
 
     pub fn minors(&self) -> impl Iterator<Item = Graph16> {
         let graph = *self;
-        self.nodes().into_iter().map(move |u| graph.del_node(u))
-            .chain(self.edges().map(move |(u, v)| graph.del_edge(u, v)))
-            .chain(self.edges().map(move |(u, v)| graph.contract_edge(u, v)))
+        self.nodes().into_iter().map(move |u| {
+            let mut graph = graph;
+            graph.del_node(u);
+            graph
+        }).chain(self.edges().map(move |(u, v)| {
+            let mut graph = graph;
+            graph.del_edge(u, v);
+            graph
+        })).chain(self.edges().map(move |(u, v)| {
+            let mut graph = graph;
+            graph.contract_edge(u, v);
+            graph
+        }))
     }
 }
 

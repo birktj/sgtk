@@ -86,7 +86,7 @@ impl RotationSystem16 {
         let mut graph = Graph16::new(self.n);
         for u in 0..self.n {
             for v in self.edges[u].iter() {
-                graph = graph.add_edge(u, usize::from(*v));
+                graph.add_edge(u, usize::from(*v));
             }
         }
 
@@ -251,7 +251,7 @@ pub fn check_genus_connected(genus: usize, graph: Graph16) -> Option<RotationSys
             if self.curr.has_edge(u, v) {
                 return self.search(u, v+1)
             }
-            self.curr = self.curr.add_edge(u, v);
+            self.curr.add_edge(u, v);
             let u_edges = self.rotation.edges[u];
             let v_edges = self.rotation.edges[v];
             //dbg!(self.rotation.edges[u]);
@@ -278,7 +278,7 @@ pub fn check_genus_connected(genus: usize, graph: Graph16) -> Option<RotationSys
                 self.rotation.edges[v] = v_edges;
             }
             self.rotation.edges[u] = u_edges;
-            self.curr = self.curr.del_edge(u, v);
+            self.curr.del_edge(u, v);
             false
         }
     }
@@ -320,13 +320,19 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
         let bridges = graph.edges().filter(|(u, v)| {
             h.has_node(*u) && h.has_node(*v) && !h.has_edge(*u, *v)
         }).map(|(u, v)| {
-            Graph16::new(0).add_node(u).add_node(v).add_edge(u, v)
+            let mut g = Graph16::new(0);
+            g.add_node(u);
+            g.add_node(v);
+            g.add_edge(u, v);
+            g
         }).chain(graph.subgraph(h.nodes().invert()).components()
             .map(|mut c| {
                 let mut newc = c;
                 for (u, v) in graph.edges() {
                     if (h.has_node(u) && c.has_node(v)) || (h.has_node(v) && c.has_node(u)) {
-                        newc = newc.add_node(u).add_node(v).add_edge(u, v);
+                        newc.add_node(u);
+                        newc.add_node(v);
+                        newc.add_edge(u, v);
                     }
                 }
 
@@ -371,7 +377,9 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
                 let mut siblings = bridge.siblings(u);
                 siblings.clear(u);
                 let v = siblings.smallest().unwrap();
-                h = h.add_node(u).add_node(v).add_edge(u, v);
+                h.add_node(u);
+                h.add_node(v);
+                h.add_edge(u, v);
                 embedding.edges[u].push(v);
                 embedding.edges[v].push(u);
                 continue
@@ -418,7 +426,9 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
                 let v = usize::from(*v);
                 embedding.edges[u].push(v);
                 embedding.edges[v].push(u);
-                h = h.add_node(u).add_node(v).add_edge(u, v);
+                h.add_node(u);
+                h.add_node(v);
+                h.add_edge(u, v);
             }
 
             embedding.edges[end].insert(end_i.unwrap(), end_snd);
@@ -426,10 +436,12 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
                 embedding.edges[end_snd].push(end);
             }
 
-            h = h.add_node(start).add_node(start_snd)
-                .add_edge(start, start_snd);
-            h = h.add_node(end).add_node(end_snd)
-                .add_edge(end_snd, end);
+            h.add_node(start);
+            h.add_node(start_snd);
+            h.add_edge(start, start_snd);
+            h.add_node(end);
+            h.add_node(end_snd);
+            h.add_edge(end_snd, end);
 
             // TODO
             //embedding.embed(path);

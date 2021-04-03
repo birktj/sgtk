@@ -45,9 +45,9 @@ impl RotationSystem16 {
     pub fn to_graph(&self) -> Graph16 {
         let mut graph = Graph16::new(0);
         for u in self.nodes {
-            graph = graph.add_node(u);
+            graph.add_node(u);
             for v in self.edges[u] {
-                graph = graph.add_edge(u, v);
+                graph.add_edge(u, v);
             }
         }
         graph

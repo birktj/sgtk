@@ -24,15 +24,16 @@ impl Enumerator16 {
         }
     }
 
-    fn enumerate_inner(&mut self, g: Graph16, n: usize) {
+    fn enumerate_inner(&mut self, mut graph: Graph16, n: usize) {
         if n >= self.maxn {
             return
         }
 
-        let graph = g.add_node(n);
+        graph.add_node(n);
 
         for edges in Bitset16::enumerate(n) {
-            let orig_graph = graph.add_edges(n, edges); //.to_canonical();
+            let mut orig_graph = graph;
+            orig_graph.add_edges(n, edges); //.to_canonical();
             
             let mut search_tree = SearchTree::new(orig_graph);
             search_tree.auto_prune = self.auto_prune;
