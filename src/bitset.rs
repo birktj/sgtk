@@ -1,6 +1,6 @@
 use crate::seq::*;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Default, Eq, PartialEq, Hash)]
 pub struct Bitset16 {
     bitset: u16
 }
@@ -38,22 +38,54 @@ impl Bitset16 {
         self.bitset &= !(1 << i);
     }
 
+    pub fn swap(&mut self, i: usize, j: usize) {
+        let vi = (self.bitset >> i) & 1;
+        let vj = (self.bitset >> j) & 1;
+        self.bitset = (self.bitset & !((1 << i) | (1 << j))) | (vi << i) | (vj << j);
+    }
+
     pub fn smallest(&self) -> Option<usize> {
-        if self.bitset == 0 {
-            None
-        } else {
+        // TODO benchmark diff
+        /*
+        if self.bitset != 0 {
             Some(self.bitset.trailing_zeros() as usize)
+        } else {
+            None
         }
+        */
+        (*self).into_iter().next()
     }
 
     pub fn count(&self) -> usize {
         self.bitset.count_ones() as usize
     }
 
+    pub fn union(&self, other: &Bitset16) -> Bitset16 {
+        Bitset16 {
+            bitset: self.bitset | other.bitset
+        }
+    }
+
     pub fn intersection(&self, other: &Bitset16) -> Bitset16 {
         Bitset16 {
             bitset: self.bitset & other.bitset
         }
+    }
+
+    pub fn difference(&self, other: &Bitset16) -> Bitset16 {
+        Bitset16 {
+            bitset: self.bitset & !other.bitset
+        }
+    }
+
+    pub fn invert(&self) -> Bitset16 {
+        Bitset16 {
+            bitset: !self.bitset
+        }
+    }
+
+    pub fn is_superset(&self, other: &Bitset16) -> bool {
+        (self.bitset & other.bitset) == other.bitset
     }
 
     pub fn enumerate(maxn: usize) -> IterEnumerate16 {
@@ -94,14 +126,13 @@ impl IntoIterator for Bitset16 {
     fn into_iter(self) -> IterBitset16 {
         IterBitset16 {
             bitset: self.bitset,
-            i: 0
         }
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct IterBitset16 {
     bitset: u16,
-    i: usize
 }
 
 impl Iterator for IterBitset16 {
@@ -109,10 +140,9 @@ impl Iterator for IterBitset16 {
 
     fn next(&mut self) -> Option<usize> {
         if self.bitset != 0 {
-            let di = self.bitset.trailing_zeros() as usize;
-            self.bitset = (self.bitset >> di) ^ 1;
-            self.i += di;
-            Some(self.i)
+            let i = self.bitset.trailing_zeros() as usize;
+            self.bitset = self.bitset ^ (1 << i);
+            Some(i)
         } else {
             None 
         }

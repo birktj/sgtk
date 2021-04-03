@@ -2,7 +2,58 @@ use std::collections::HashSet;
 use sgtk::*;
 
 fn main() {
-    let mut graph = Graph16::new(9);
+    for n in 0..16 {
+        let graph = Graph16::regular(n);
+        /*
+        let genus: usize = graph.components().map(|c| {
+            planar::RotationSystem16::simple(&c).genus()
+        }).sum();
+        eprintln!("{}: genus {}", n, genus);
+        */
+        let embedding = embedding::RotationSystem16::simple(&graph);
+        eprintln!("{}: genus {}", n, embedding.genus());
+    }
+
+    dbg!(parse::graph6("CF"));
+
+    let graph = Graph16::regular(5);
+
+    let embedding = planar::fastdmp(&graph);
+
+    dbg!(&embedding);
+
+    if let Some(embedding) = embedding {
+        dbg!(embedding.genus());
+    }
+
+    /*
+    let planar = graph.components().all(|c| {
+        planar::RotationSystem16::enumerate(&c)
+            .any(|embedding| embedding.genus() == 0)
+    });
+
+    eprintln!("Planar: {:?}", planar);
+
+    eprintln!("Embedding count: {}", planar::RotationSystem16::enumerate(&graph).count());
+
+    let embedding = planar::RotationSystem16::enumerate(&graph)
+        .filter(|embedding| embedding.genus() == 0)
+        .next().unwrap();
+
+    dbg!(embedding);
+    dbg!(embedding.count_faces());
+
+    let embedding = planar::RotationSystem16::enumerate(&graph)
+        .next().unwrap();
+
+    dbg!(embedding);
+    dbg!(embedding.count_faces());
+    */
+    /*
+    for embedding in planar::RotationSystem16::enumerate(&graph) {
+        eprintln!("genus {}", embedding.genus());
+    }
+    */
 
     /*
     for i in 0..9 {
@@ -11,6 +62,9 @@ fn main() {
         }
     }
     */
+    /*
+
+    let mut graph = Graph16::new(9);
 
     graph = graph.add_edge(0, 1);
     graph = graph.add_edge(0, 3);
@@ -216,5 +270,6 @@ fn main() {
         minor.print_dot();
         println!("");
     }
+    */
     */
 }

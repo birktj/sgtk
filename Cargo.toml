@@ -16,5 +16,9 @@ criterion = {version = "0.3", features = ["html_reports"]}
 name = "canonical"
 harness = false
 
+[[bench]]
+name = "planar"
+harness = false
+
 [profile.release]
 debug = 1
