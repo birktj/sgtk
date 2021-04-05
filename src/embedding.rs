@@ -98,11 +98,10 @@ impl RotationSystem16 {
 
     pub fn faces<'a>(&'a self) -> impl 'a + Iterator<Item = Face16> {
         let mut used = [Bitset16::new(); 16];
-        let mut u = 0;
+        let mut visited = Bitset16::new();
         
         std::iter::from_fn(move || {
-            // TODO: use bitset?
-            while u < 16 {
+            while let Some(u) = self.nodes.intersection(&visited.invert()).smallest() {
                 if let Some(v) = self.edges[u]
                     .intersection(&used[u].invert())
                     .smallest()
@@ -113,7 +112,7 @@ impl RotationSystem16 {
                     }
                     return Some(face)
                 }
-                u += 1;
+                visited.set(u);
             }
             None
         })
