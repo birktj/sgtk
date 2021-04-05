@@ -150,6 +150,7 @@ impl RotationSystem16 {
     }
 
     fn insert_edge(&mut self, node: usize, after: usize, dest: usize) {
+        self.nodes.set(dest);
         self.edges[node].set(dest);
         let k = self.order[node][after];
         self.order[node][dest] = k;
@@ -159,8 +160,6 @@ impl RotationSystem16 {
     }
 
     fn insert_edge_any(&mut self, node: usize, dest: usize) {
-        self.nodes.set(node);
-        self.nodes.set(dest);
         if let Some(i) = self.edges[node].smallest() {
             self.insert_edge(node, i, dest);
         } else {
@@ -168,16 +167,35 @@ impl RotationSystem16 {
         }
     }
 
+    fn remove_edge_dir(&mut self, u: usize, v: usize) {
+        self.edges[u].clear(v);
+        if self.edges[u].is_empty() {
+            self.nodes.clear(u);
+        }
+        let before = usize::from(self.order_inv[u][v]);
+        let after  = usize::from(self.order[u][v]);
+        self.order[u][before] = after as u8;
+        self.order_inv[u][after]  = before as u8;
+    }
+
+    pub fn remove_edge(&mut self, u: usize, v: usize) {
+        self.remove_edge_dir(u, v);
+        self.remove_edge_dir(v, u);
+    }
+
     pub fn embed_free_edge(&mut self, u: usize, v: usize) {
         self.insert_edge_any(u, v);
         self.insert_edge_any(v, u);
     }
 
+    pub fn embed_edge_after(&mut self, u: usize, u_after: usize, v: usize, v_after: usize) {
+        self.insert_edge(u, u_after, v);
+        self.insert_edge(v, v_after, u);
+    }
+
     pub fn embed_bisecting_path(&mut self, face: Face16, path: &Seq16) -> [Face16; 2] {
-        let start     = path.first().unwrap();
-        let start_snd = usize::from(path[1]);
-        let end       = path.last().unwrap();
-        let end_snd   = usize::from(path[path.len()-2]);
+        let start = path.first().unwrap();
+        let end   = path.last().unwrap();
 
         let mut start_u = None;
         let mut end_u = None;
@@ -191,8 +209,17 @@ impl RotationSystem16 {
             }
         }
 
-        self.insert_edge(start, usize::from(self.order_inv[start][start_u.unwrap()]), start_snd);
-        self.insert_edge(end, end_u.unwrap(), end_snd);
+        self.embed_bisecting_path_after(face, path, start_u.unwrap(), end_u.unwrap())
+    }
+
+    pub fn embed_bisecting_path_after(&mut self, face: Face16, path: &Seq16, start_u: usize, end_u: usize) -> [Face16; 2] {
+        let start     = path.first().unwrap();
+        let start_snd = usize::from(path[1]);
+        let end       = path.last().unwrap();
+        let end_snd   = usize::from(path[path.len()-2]);
+
+        self.insert_edge(start, usize::from(self.order_inv[start][start_u]), start_snd);
+        self.insert_edge(end, end_u, end_snd);
         if start_snd != end {
             self.insert_edge_any(start_snd, start);
             self.insert_edge_any(end_snd, end);
@@ -255,7 +282,7 @@ impl RotationSystemEnumerate16 {
             let j = self.curr.edges[i].smallest().unwrap();
             self.curr.order[i][j] < self.curr.order_inv[i][j]
         } else {
-            false
+            true
         }
     }
 }
@@ -270,7 +297,7 @@ impl Iterator for RotationSystemEnumerate16 {
                     self.new_perm(j);
                     self.next_perm(j);
                 }
-                if !self.flip_perm() {
+                if self.flip_perm() {
                     return Some(self.curr.clone())
                 }
             }

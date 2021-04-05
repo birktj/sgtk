@@ -38,6 +38,12 @@ impl<T> Map16<T> {
         }
     }
 
+    pub fn insert(&mut self, i: usize, val: T) {
+        assert!(!self.occupied.get(i));
+        self.occupied.set(i);
+        self.values[i] = MaybeUninit::new(val);
+    }
+
     pub fn swap(&mut self, i: usize, j: usize) {
         self.occupied.swap(i, j);
         self.values.swap(i, j);

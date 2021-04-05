@@ -9,6 +9,7 @@ fn main() {
         }
     }
 
+    /*
     for n in 1..16 {
         let graph = Graph16::regular(n);
         /*
@@ -20,21 +21,39 @@ fn main() {
         let embedding = embedding::RotationSystem16::simple(&graph);
         eprintln!("{}: genus {}", n, embedding.genus());
     }
+    */
 
     dbg!(parse::from_graph6("CF"));
 
-    let graph = k33; // Graph16::regular(5);
+    /*
+    let mut graph = random::graph16(8); //Graph16::regular(8);
+    while !graph.is_connected() || planar::fastdmp(&graph).is_some() {
+        graph = random::graph16(10);
+    }
+    */
+    /*
+    let mut graph = Graph16::new(6);
+    graph.add_edge(0, 1);
+    graph.add_edge(0, 2);
+    graph.add_edge(1, 3);
+    graph.add_edge(1, 4);
+    graph.add_edge(1, 5);
+    graph.add_edge(2, 3);
+    graph.add_edge(2, 4);
+    graph.add_edge(2, 5);
+    graph.add_edge(3, 4);
+    graph.add_edge(3, 5);
+    graph.add_edge(4, 5);
+    */
+    let graph = Graph16::regular(8);
 
-    dbg!(embedding::RotationSystem16::simple(&graph));
+    dbg!(graph);
 
-    dbg!(embedding::RotationSystem16::enumerate(&graph).count());
-    dbg!(embedding::RotationSystem16::enumerate(&graph)
-        .filter(|embedding| embedding.genus() == 1)
-        .count());
+    //dbg!(toroidal::find_kuratowski(graph));
 
-    let embedding = embedding::RotationSystem16::enumerate(&graph)
-        .filter(|embedding| embedding.genus() == 1)
-        .next();
+    //dbg!(embedding::RotationSystem16::enumerate(&graph).count());
+
+    let embedding = toroidal::find_embedding(&graph);
 
     //let embedding = planar::fastdmp(&graph);
 
