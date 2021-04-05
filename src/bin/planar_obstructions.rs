@@ -12,7 +12,6 @@ fn find_planar_obstruction(graph: Graph16) -> Graph16 {
 }
 
 fn main() {
-    /*
     let mut obstructions = HashSet::new();
 
     for _ in 0..10 {
@@ -29,8 +28,8 @@ fn main() {
         .map(|g| (g, None)).collect::<Vec<_>>();
 
     sgtk::viz::render_dot("test.pdf", &obstructions);
-    */
 
+    /*
     let mut graph = sgtk::random::graph16(10);
     while !graph.is_connected() || sgtk::planar::fastdmp(&graph).is_some() {
         graph = sgtk::random::graph16(10);
@@ -41,4 +40,5 @@ fn main() {
     sgtk::viz::render_dot("test.pdf", &graphs);
     graphs.push((sgtk::toroidal::find_kuratowski(graph).to_canonical(), None));
     sgtk::viz::render_dot("test.pdf", &graphs);
+    */
 }

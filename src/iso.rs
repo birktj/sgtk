@@ -34,7 +34,7 @@ pub fn refine(graph: &Graph16, mut coloring: Coloring16, seq: Seq16) -> Coloring
             let mut iter = frags.iter().enumerate()
                 .filter(|(_, frag)| !frag.is_empty());
             iter.next();
-            for (i, frag) in iter {
+            for (_, frag) in iter {
                 for u in *frag {
                     coloring.set(u, col);
                 }
@@ -145,7 +145,6 @@ impl SearchTree {
                 .filter(|cell| cell.count() > 1)
                 .next().unwrap();
 
-            let mut largest = 0;
             for u in cell {
                 let mut seq = seq;
                 seq.push(u);
@@ -231,7 +230,7 @@ impl NodeInvariant {
         }
     }
 
-    fn add_node(&mut self, coloring: &Coloring16) -> u8 {
+    fn add_node(&mut self, _coloring: &Coloring16) -> u8 {
         // FIXME: using node invariants makes code slower, not faster
         /*
         use std::hash::{Hash, Hasher};

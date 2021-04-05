@@ -18,28 +18,31 @@ pub fn graph2dot(graphs: &[(Graph16, Option<Coloring16>)]) -> String {
     };
 
 
-    write!(dot, "graph {{\n");
+    write!(dot, "graph {{\n").unwrap();
     write!(dot, "    node[shape = {} width=0.2 style=filled colorscheme={}]\n", 
-        opts.shape, opts.colorscheme);
+        opts.shape, opts.colorscheme).unwrap();
     for (gi, (graph, coloring)) in graphs.iter().enumerate() {
-        write!(dot, "subgraph cluster{} {{\n", gi);
-        write!(dot, "    label=\"{}\";\n", gi);
+        write!(dot, "subgraph cluster{} {{\n", gi).unwrap();
+        write!(dot, "    label=\"{}\";\n", gi).unwrap();
         for u in graph.nodes() {
             if let Some(c) = coloring.as_ref()
                 .map(|coloring| coloring.get(u))
             {
-                write!(dot, "    g{}n{}[label=\"{}\", fillcolor={}];\n", gi, u, u, c+1);
+                write!(dot, "    g{}n{}[label=\"{}\", fillcolor={}];\n", gi, u, u, c+1)
+                    .unwrap();
             } else {
-                write!(dot, "    g{}n{}[label=\"{}\"];\n", gi, u, u);
+                write!(dot, "    g{}n{}[label=\"{}\"];\n", gi, u, u)
+                    .unwrap();
             }
             //write!(dot, "    {};\n", u);
         }
         for (u, v) in graph.edges() {
-            write!(dot, "    g{}n{} -- g{}n{};\n", gi, u, gi, v);
+            write!(dot, "    g{}n{} -- g{}n{};\n", gi, u, gi, v)
+                .unwrap();
         }
-        write!(dot, "}}\n");
+        write!(dot, "}}\n").unwrap();
     }
-    write!(dot, "}}\n");
+    write!(dot, "}}\n").unwrap();
     dot
 }
 

@@ -1,7 +1,6 @@
 use crate::Graph16;
 use crate::map::Map16;
 use crate::bitset::Bitset16;
-use crate::seq::Seq16;
 use crate::embedding::*;
 
 #[inline(always)]
@@ -83,7 +82,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
         //dbg!(&one_admissible);
         //dbg!(embedding.faces().map(|face| (face, embedding.face_nodes(face))).collect::<Vec<_>>());
         //dbg!(&admissible_bridges);
-        let (i, mut bridge) = if let Some(i) = one_admissible.smallest() {
+        let (i, bridge) = if let Some(i) = one_admissible.smallest() {
             one_admissible.clear(i);
             (i, bridges.take(i).unwrap())
         } else if let Some(bridge) = bridges.pop() {
@@ -92,7 +91,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             return Some(embedding)
         };
 
-        let mut bridge_nodes = bridge.nodes();
+        let bridge_nodes = bridge.nodes();
         let mut attachments = bridge_nodes.intersection(&h.nodes());
 
         /*
@@ -194,7 +193,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             let start = attachments.smallest().unwrap();
             attachments.clear(start);
 
-            let mut path = bridge.path(start, attachments).unwrap();
+            let path = bridge.path(start, attachments).unwrap();
             //dbg!(path);
 
             let face_i = old_admissible_faces.smallest().unwrap();

@@ -1,6 +1,5 @@
 use crate::seq::{Seq16, SeqPermutations16};
 use crate::bitset::Bitset16;
-use crate::smallvec::Smallvec;
 use crate::Graph16;
 
 #[derive(Clone)]
@@ -44,7 +43,7 @@ impl RotationSystem16 {
 
     pub fn enumerate(graph: &Graph16) -> RotationSystemEnumerate16 {
         let curr = RotationSystem16::simple(graph);
-        let mut permutations = [SeqPermutations16::empty(); 16];
+        let permutations = [SeqPermutations16::empty(); 16];
 
         let flip_node = curr.nodes.into_iter()
             .filter(|i| curr.edges[*i].count() > 2)

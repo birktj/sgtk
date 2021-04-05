@@ -139,7 +139,7 @@ impl Graph16 {
         self.g[u] |= 1 << u;
     }
 
-    fn trim(mut self) -> Graph16 {
+    pub fn trim(mut self) -> Graph16 {
         // TODO: can this be done more efficently?
         let mut i = 0;
         let mut j = 0;
@@ -193,7 +193,7 @@ impl Graph16 {
     }
 
     #[inline]
-    pub fn del_edges(&mut self, u: usize, mut edges: Bitset16) {
+    pub fn del_edges(&mut self, u: usize, edges: Bitset16) {
         self.g[u] &= !edges.to_u16();
         for v in edges {
             self.g[v] &= !(1 << u);
@@ -532,55 +532,6 @@ impl Graph16 {
         ComponentIter16 {
             graph: self,
             visited: self.nodes().invert(),
-        }
-    }
-
-    pub fn map_components<F: FnMut(&Graph16)>(&self, mut f: F) {
-        let mut p = [0; 16];
-        let mut s = [1; 16];
-        for i in 0..16 {
-            p[i] = i;
-        }
-
-        let mut union = |mut i, mut j| {
-            while p[i] != i {
-                i = p[i];
-            }
-            while p[j] != j {
-                j = p[j];
-            }
-            if s[i] > s[j] {
-                p[j] = i;
-            } else {
-                p[i] = j;
-            }
-        };
-
-        for (i, j) in self.edges() {
-            union(i, j);
-        }
-
-        let find = |mut i| {
-            while p[i] != i {
-                i = p[i];
-            }
-            i
-        };
-
-        for c in 0..16 {
-            let mut map = [0; 16];
-            let mut n = 0;
-            for i in self.nodes() {
-                if find(i) == c {
-                    map[i] = n;
-                    n += 1;
-                }
-            }
-            let mut graph = Graph16::new(n);
-            for (i, j) in self.edges() {
-                graph.add_edge(map[i], map[j]);
-            }
-            f(&graph);
         }
     }
 

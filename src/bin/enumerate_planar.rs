@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use sgtk::Graph16;
 use sgtk::planar;
-use sgtk::viz;
 use sgtk::bitset::Bitset16;
 
 pub struct Enumerator16 {
