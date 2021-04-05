@@ -42,6 +42,27 @@ impl RotationSystem16 {
         }
     }
 
+    pub fn enumerate(graph: &Graph16) -> RotationSystemEnumerate16 {
+        let curr = RotationSystem16::simple(graph);
+        let mut permutations = [SeqPermutations16::empty(); 16];
+
+        let flip_node = curr.nodes.into_iter()
+            .filter(|i| curr.edges[*i].count() > 2)
+            .next();
+
+        let mut enumerate = RotationSystemEnumerate16 {
+            flip_node,
+            curr,
+            permutations
+        };
+
+        if let Some(i) = enumerate.curr.nodes.smallest() {
+            enumerate.new_perm(i);
+        }
+
+        enumerate
+    }
+
     pub fn to_graph(&self) -> Graph16 {
         let mut graph = Graph16::new(0);
         for u in self.nodes {
@@ -195,5 +216,102 @@ impl std::fmt::Debug for RotationSystem16 {
         f.debug_map().entries(self.nodes.into_iter().map(|u| {
             (u, self.siblings(u).collect::<Vec<_>>())
         })).finish()
+    }
+}
+
+pub struct RotationSystemEnumerate16 {
+    flip_node: Option<usize>,
+    curr: RotationSystem16,
+    permutations: [SeqPermutations16; 16],
+}
+
+impl RotationSystemEnumerate16 {
+    fn new_perm(&mut self, i: usize) {
+        let mut seq = Seq16::new();
+        for j in self.curr.edges[i].into_iter().skip(1) {
+            seq.push(j);
+        }
+        self.permutations[i] = seq.permutations();
+    }
+
+    fn next_perm(&mut self, i: usize) -> bool {
+        if let Some(new) = self.permutations[i].next() {
+            let j0 = self.curr.edges[i].smallest().unwrap();
+            let mut last = j0;
+            for next in new.iter() {
+                let next = usize::from(*next);
+                self.curr.order[i][last] = next as u8;
+                self.curr.order_inv[i][next] = last as u8;
+                last = next;
+            }
+            self.curr.order[i][last] = j0 as u8;
+            self.curr.order_inv[i][j0] = last as u8;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn flip_perm(&self) -> bool {
+        if let Some(i) = self.flip_node {
+            let j = self.curr.edges[i].smallest().unwrap();
+            self.curr.order[i][j] < self.curr.order_inv[i][j]
+        } else {
+            false
+        }
+    }
+}
+
+impl Iterator for RotationSystemEnumerate16 {
+    type Item = RotationSystem16;
+
+    fn next(&mut self) -> Option<RotationSystem16> {
+        for i in self.curr.nodes.into_iter().rev() {
+            while self.next_perm(i) {
+                for j in self.curr.nodes.intersection(&Bitset16::mask_ge(i+1)) {
+                    self.new_perm(j);
+                    self.next_perm(j);
+                }
+                if !self.flip_perm() {
+                    return Some(self.curr.clone())
+                }
+            }
+        }
+
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn count_toroidal_embeddings_k5() {
+        let k5 = Graph16::regular(5);
+
+        let count = RotationSystem16::enumerate(&k5)
+            .filter(|embedding| embedding.genus() == 1)
+            .count();
+
+        // @myrvold2018large
+        assert_eq!(count, 231);
+    }
+
+    #[test]
+    fn count_toroidal_embeddings_k33() {
+        let mut k33 = Graph16::new(6);
+        for i in 0..3 {
+            for j in 3..6 {
+                k33.add_edge(i, j);
+            }
+        }
+
+        let count = RotationSystem16::enumerate(&k33)
+            .filter(|embedding| embedding.genus() == 1)
+            .count();
+
+        // @myrvold2018large
+        assert_eq!(count, 20);
     }
 }

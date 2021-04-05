@@ -20,5 +20,9 @@ harness = false
 name = "planar"
 harness = false
 
+[[bench]]
+name = "embedding"
+harness = false
+
 [profile.release]
 debug = 1

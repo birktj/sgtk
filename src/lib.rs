@@ -11,5 +11,6 @@ pub mod random;
 pub mod embedding;
 pub mod planar;
 pub mod planar_old;
+pub mod toroidal;
 
 pub use graph::Graph16;

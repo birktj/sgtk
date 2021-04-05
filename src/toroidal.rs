@@ -5,17 +5,32 @@ use crate::seq::Seq16;
 use crate::planar;
 use crate::embedding::*;
 
-fn find_kuratowski(mut graph: Graph16) -> Graph16 {
+pub fn find_kuratowski(mut graph: Graph16) -> Graph16 {
     for (u, v) in graph.edges() {
-        graph = graph.del_edge(u, v);
+        graph.del_edge(u, v);
+        if !graph.is_connected() {
+            for component in graph.components() {
+                if planar::fastdmp(&component).is_none() {
+                    graph = component;
+                    break;
+                }
+            }
+        } else if planar::fastdmp(&graph).is_some() {
+            graph.add_edge(u, v);
+        }
     }
+    graph
 }
 
+/*
 struct TorusSearcher16 {
     embedding: RotationSystem16,
     admissible_faces: [Bitset16; 16],
     admissible_bridges: [Bitset16; 16],
     bridges: Map16<Graph16>,
+    graph: Graph16,
 }
 
-impl TorusSearcher
+impl TorusSearcher {
+}
+*/

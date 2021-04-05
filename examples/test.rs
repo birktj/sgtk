@@ -2,8 +2,15 @@ use std::collections::HashSet;
 use sgtk::*;
 
 fn main() {
+    let mut k33 = Graph16::new(6);
+    for i in 0..3 {
+        for j in 3..6 {
+            k33.add_edge(i, j);
+        }
+    }
+
     for n in 1..16 {
-        let graph = dbg!(Graph16::regular(n));
+        let graph = Graph16::regular(n);
         /*
         let genus: usize = graph.components().map(|c| {
             planar::RotationSystem16::simple(&c).genus()
@@ -16,9 +23,20 @@ fn main() {
 
     dbg!(parse::from_graph6("CF"));
 
-    let graph = Graph16::regular(4);
+    let graph = k33; // Graph16::regular(5);
 
-    let embedding = planar::fastdmp(&graph);
+    dbg!(embedding::RotationSystem16::simple(&graph));
+
+    dbg!(embedding::RotationSystem16::enumerate(&graph).count());
+    dbg!(embedding::RotationSystem16::enumerate(&graph)
+        .filter(|embedding| embedding.genus() == 1)
+        .count());
+
+    let embedding = embedding::RotationSystem16::enumerate(&graph)
+        .filter(|embedding| embedding.genus() == 1)
+        .next();
+
+    //let embedding = planar::fastdmp(&graph);
 
     dbg!(&embedding);
 

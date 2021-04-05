@@ -22,6 +22,16 @@ impl Bitset16 {
         self.bitset
     }
 
+    pub fn mask_le(n: usize) -> Bitset16 {
+        Bitset16 {
+            bitset: (1u16 << n).wrapping_sub(1),
+        }
+    }
+
+    pub fn mask_ge(n: usize) -> Bitset16 {
+        Bitset16::mask_le(n).invert()
+    }
+
     pub fn is_empty(&self) -> bool {
         self.bitset == 0
     }
@@ -156,6 +166,18 @@ impl Iterator for IterBitset16 {
         }
         None
         */
+    }
+}
+
+impl std::iter::DoubleEndedIterator for IterBitset16 {
+    fn next_back(&mut self) -> Option<usize> {
+        if self.bitset != 0 {
+            let i = 15 - self.bitset.leading_zeros() as usize;
+            self.bitset = self.bitset ^ (1 << i);
+            Some(i)
+        } else {
+            None 
+        }
     }
 }
 
