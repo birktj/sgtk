@@ -45,7 +45,8 @@ fn main() {
     graph.add_edge(3, 5);
     graph.add_edge(4, 5);
     */
-    let graph = Graph16::regular(8);
+    let graph = parse::from_upper_tri("9 000001110000111000111111111111111000");
+        //Graph16::regular(8);
 
     dbg!(graph);
 
@@ -53,14 +54,22 @@ fn main() {
 
     //dbg!(embedding::RotationSystem16::enumerate(&graph).count());
 
+    /*
     let embedding = toroidal::find_embedding(&graph);
-
-    //let embedding = planar::fastdmp(&graph);
 
     dbg!(&embedding);
 
     if let Some(embedding) = embedding {
         dbg!(embedding.genus());
+    }
+    */
+
+    for minor in graph.minors() {
+        //viz::render_dot("test.pdf", &[(graph, None), (minor, None)]);
+        dbg!(minor);
+        let embedding = toroidal::find_embedding(&minor);
+        dbg!(&embedding);
+        assert!(embedding.is_some());
     }
 
     /*

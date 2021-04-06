@@ -1,8 +1,5 @@
 use std::collections::HashSet;
 use crate::Graph16;
-use crate::map::Map16;
-use crate::smallvec::Smallvec;
-use crate::bitset::Bitset16;
 use crate::slotmap::SlotMap;
 use crate::seq::Seq16;
 use crate::planar;
@@ -51,7 +48,7 @@ pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
     let h = find_kuratowski(*graph);
 
     for embedding in RotationSystem16::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
-        let mut searcher = TorusSearcher16::new(embedding, graph);
+        let mut searcher = TorusSearcher16::new(embedding, graph)?;
         if searcher.search() {
             return Some(searcher.embedding)
         }
@@ -59,18 +56,17 @@ pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
     None
 }
 
-struct TorusSearcher16<'a> {
+struct TorusSearcher16 {
     embedding: RotationSystem16,
     admissible_faces: SlotMap<HashSet<usize>>, //[Bitset16; 16],
     admissible_bridges: SlotMap<HashSet<usize>>, // [HashSet<usize>; 16],
     bridges: SlotMap<Graph16>,
     faces: SlotMap<Face16>,
-    graph: &'a Graph16,
     h: Graph16,
 }
 
-impl<'a> TorusSearcher16<'a> {
-    fn new(embedding: RotationSystem16, graph: &'a Graph16) -> Self {
+impl TorusSearcher16 {
+    fn new(embedding: RotationSystem16, graph: &Graph16) -> Option<Self> {
         let h = embedding.to_graph();
         let faces: SlotMap<_> = embedding.faces().collect();
         let bridges: SlotMap<_> = compute_bridges(graph, &h).collect();
@@ -92,30 +88,26 @@ impl<'a> TorusSearcher16<'a> {
                     admissible_bridges[j].insert(i);
                 }
             }
+            if admissible_faces[i].is_empty() {
+                return None
+            }
         }
-        Self {
+        Some(Self {
             embedding,
             admissible_faces,
             admissible_bridges,
             bridges,
             faces,
-            graph,
             h,
-        }
+        })
     }
 
-    fn update_faces(&mut self, bridge_i: usize, face_i: usize) -> bool {
+    fn update_faces(&mut self, bridge_i: usize, face_i: usize) {
         let attachments = self.h.nodes().intersection(&self.bridges[bridge_i].nodes());
 
         if self.embedding.face_nodes(self.faces[face_i]).is_superset(&attachments) {
             self.admissible_faces[bridge_i].insert(face_i);
             self.admissible_bridges[face_i].insert(bridge_i);
-        }
-        if self.admissible_faces[bridge_i].is_empty() {
-            // No embedding
-            false
-        } else {
-            true
         }
     }
 
@@ -154,9 +146,7 @@ impl<'a> TorusSearcher16<'a> {
 
     fn remove_face(&mut self, i: usize) -> (Face16, HashSet<usize>) {
         let face = self.faces.take(i).unwrap();
-        let admissible_bridges = std::mem::replace(
-            &mut self.admissible_bridges[i],
-            HashSet::new());
+        let admissible_bridges = self.admissible_bridges.take(i).unwrap();
         //self.admissible_bridges[i] = Bitset16::new();
 
         for j in &admissible_bridges {
@@ -179,9 +169,7 @@ impl<'a> TorusSearcher16<'a> {
 
         //let old_admissible_faces = self.admissible_faces[bridge_i];
         //self.admissible_faces[bridge_i] = Bitset16::new();
-        let old_admissible_faces = std::mem::replace(
-            &mut self.admissible_faces[bridge_i],
-            HashSet::new());
+        let old_admissible_faces = self.admissible_faces.take(bridge_i).unwrap();
 
         for j in &old_admissible_faces {
             self.admissible_bridges[*j].remove(&bridge_i);
@@ -191,7 +179,7 @@ impl<'a> TorusSearcher16<'a> {
             //dbg!(old_admissible_faces);
             //dbg!(face_i);
             //dbg!(bridge);
-            //dbg!(self.embedding.face(face).collect::<Vec<_>>());
+            //dbg!(self.embedding.face(self.faces[*face_i]).collect::<Vec<_>>());
 
             let mut attachments = bridge_nodes.intersection(&self.h.nodes());
             let start = attachments.smallest().unwrap();
@@ -261,8 +249,9 @@ impl<'a> TorusSearcher16<'a> {
                         let u = usize::from(*u);
                         let v = usize::from(*v);
                         //dbg!(u, v);
-                        let new_faces = self.embedding.embed_bisecting_path_after(face, &path, u, v);
                         let oldh = self.h.clone();
+
+                        let new_faces = self.embedding.embed_bisecting_path_after(&path, u, v);
                         self.h.union(&Graph16::from_path(&path));
 
                         let mut new_faces_idx = HashSet::new();
@@ -277,12 +266,10 @@ impl<'a> TorusSearcher16<'a> {
 
                         for bridge_j in &old_admissible_bridges {
                             for face_j in &new_faces_idx {
-                                if !self.update_faces(*bridge_j, *face_j) {
-                                    ok = false;
-                                    break;
-                                }
+                                self.update_faces(*bridge_j, *face_j);
                             }
-                            if !ok {
+                            if self.admissible_faces[*bridge_j].is_empty() {
+                                ok = false;
                                 break
                             }
                         }
@@ -321,18 +308,33 @@ impl<'a> TorusSearcher16<'a> {
                 }
                 //dbg!("insert", face_i);
                 self.faces.insert(*face_i, face);
-                self.admissible_bridges[*face_i] = old_admissible_bridges;
+                self.admissible_bridges.insert(*face_i, old_admissible_bridges);
                 for bridge_j in &self.admissible_bridges[*face_i] {
                     self.admissible_faces[*bridge_j].insert(*face_i);
                 }
             }
         }
         self.bridges.insert(bridge_i, bridge);
-        self.admissible_faces[bridge_i] = old_admissible_faces;
+        self.admissible_faces.insert(bridge_i, old_admissible_faces);
 
         for j in &self.admissible_faces[bridge_i] {
             self.admissible_bridges[*j].insert(bridge_i);
         }
         false
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_known_minor() {
+        let graph = crate::parse::from_upper_tri("9 000001110000111000111111111111111000");
+        assert!(find_embedding(&graph).is_none());
+        for minor in graph.minors() {
+            assert!(find_embedding(&minor).is_some());
+        }
+    }
+
 }

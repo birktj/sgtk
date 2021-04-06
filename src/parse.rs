@@ -64,3 +64,22 @@ pub fn to_graph6(graph: &Graph16) -> String {
     }
     res
 }
+
+pub fn from_upper_tri(mut s: &str) -> Graph16 {
+    let sn = s.split(' ').next().unwrap();
+    let n = sn.parse::<usize>().unwrap();
+    s = s.strip_prefix(sn).unwrap();
+
+    let mut graph = Graph16::new(n);
+
+    let mut edges = s.chars().filter(|c| *c == '1' || *c == '0');
+
+    for u in 0..n - 1 {
+        for v in u+1..n {
+            if edges.next().unwrap() == '1' {
+                graph.add_edge(u, v);
+            }
+        }
+    }
+    graph
+}

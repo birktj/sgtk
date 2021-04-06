@@ -209,10 +209,10 @@ impl RotationSystem16 {
             }
         }
 
-        self.embed_bisecting_path_after(face, path, start_u.unwrap(), end_u.unwrap())
+        self.embed_bisecting_path_after(path, start_u.unwrap(), end_u.unwrap())
     }
 
-    pub fn embed_bisecting_path_after(&mut self, face: Face16, path: &Seq16, start_u: usize, end_u: usize) -> [Face16; 2] {
+    pub fn embed_bisecting_path_after(&mut self, path: &Seq16, start_u: usize, end_u: usize) -> [Face16; 2] {
         let start     = path.first().unwrap();
         let start_snd = usize::from(path[1]);
         let end       = path.last().unwrap();
