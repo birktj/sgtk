@@ -1,10 +1,9 @@
-use std::collections::HashSet;
 use crate::Graph16;
 use crate::map::Map64;
 use crate::seq::Seq16;
 use crate::planar;
 use crate::embedding::*;
-use crate::bitset::Bitset;
+use crate::bitset::{Bitset, Bitset64};
 
 pub fn find_kuratowski(mut graph: Graph16) -> Graph16 {
     for (u, v) in graph.edges() {
@@ -78,8 +77,8 @@ pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
 
 struct TorusSearcher16 {
     embedding: RotationSystem16,
-    admissible_faces: Map64<HashSet<usize>>, //[Bitset16; 16],
-    admissible_bridges: Map64<HashSet<usize>>, // [HashSet<usize>; 16],
+    admissible_faces: Map64<Bitset64>, //[Bitset16; 16],
+    admissible_bridges: Map64<Bitset64>, // [HashSet<usize>; 16],
     bridges: Map64<Graph16>,
     faces: Map64<Face16>,
     h: Graph16,
@@ -97,15 +96,15 @@ impl TorusSearcher16 {
         let mut admissible_bridges = Map64::new(); // [HashSet<usize>; 16] = Default::default();
 
         for (i, _) in faces.iter() {
-            admissible_bridges.insert(i, HashSet::new());
+            admissible_bridges.insert(i, Bitset64::new());
         }
         for (i, bridge) in bridges.iter() {
-            admissible_faces.insert(i, HashSet::new());
+            admissible_faces.insert(i, Bitset64::new());
             for (j, face) in faces.iter() {
                 let attachments = h.nodes().intersection(&bridge.nodes());
                 if embedding.face_nodes(*face).is_superset(&attachments) {
-                    admissible_faces[i].insert(j);
-                    admissible_bridges[j].insert(i);
+                    admissible_faces[i].set(j);
+                    admissible_bridges[j].set(i);
                 }
             }
             if admissible_faces[i].is_empty() {
@@ -126,21 +125,21 @@ impl TorusSearcher16 {
         let attachments = self.h.nodes().intersection(&self.bridges[bridge_i].nodes());
 
         if self.embedding.face_nodes(self.faces[face_i]).is_superset(&attachments) {
-            self.admissible_faces[bridge_i].insert(face_i);
-            self.admissible_bridges[face_i].insert(bridge_i);
+            self.admissible_faces[bridge_i].set(face_i);
+            self.admissible_bridges[face_i].set(bridge_i);
         }
     }
 
-    fn add_bridge(&mut self, bridge: Graph16, admissible_faces: &HashSet<usize>) -> Option<usize> {
+    fn add_bridge(&mut self, bridge: Graph16, admissible_faces: Bitset64) -> Option<usize> {
         let i = self.bridges.push(bridge);
         let attachments = self.h.nodes().intersection(&bridge.nodes());
 
-        self.admissible_faces.insert(i, HashSet::new());
+        self.admissible_faces.insert(i, Bitset64::new());
 
         for j in admissible_faces {
-            if self.embedding.face_nodes(self.faces[*j]).is_superset(&attachments) {
-                self.admissible_faces[i].insert(*j);
-                self.admissible_bridges[*j].insert(i);
+            if self.embedding.face_nodes(self.faces[j]).is_superset(&attachments) {
+                self.admissible_faces[i].set(j);
+                self.admissible_bridges[j].set(i);
             }
         }
         if self.admissible_faces[i].is_empty() {
@@ -152,25 +151,25 @@ impl TorusSearcher16 {
         }
     }
 
-    fn remove_bridge(&mut self, i: usize) -> (Graph16, HashSet<usize>) {
+    fn remove_bridge(&mut self, i: usize) -> (Graph16, Bitset64) {
         let bridge = self.bridges.take(i).unwrap();
         let admissible_faces = self.admissible_faces.take(i).unwrap();
         //self.admissible_faces[i] = Bitset16::new();
 
-        for j in &admissible_faces {
-            self.admissible_bridges[*j].remove(&i);
+        for j in admissible_faces {
+            self.admissible_bridges[j].clear(i);
         }
 
         (bridge, admissible_faces)
     }
 
-    fn remove_face(&mut self, i: usize) -> (Face16, HashSet<usize>) {
+    fn remove_face(&mut self, i: usize) -> (Face16, Bitset64) {
         let face = self.faces.take(i).unwrap();
         let admissible_bridges = self.admissible_bridges.take(i).unwrap();
         //self.admissible_bridges[i] = Bitset16::new();
 
-        for j in &admissible_bridges {
-            self.admissible_faces[*j].remove(&i);
+        for j in admissible_bridges {
+            self.admissible_faces[j].clear(i);
         }
 
         (face, admissible_bridges)
@@ -191,11 +190,11 @@ impl TorusSearcher16 {
         //self.admissible_faces[bridge_i] = Bitset16::new();
         let old_admissible_faces = self.admissible_faces.take(bridge_i).unwrap();
 
-        for j in &old_admissible_faces {
-            self.admissible_bridges[*j].remove(&bridge_i);
+        for j in old_admissible_faces {
+            self.admissible_bridges[j].clear(bridge_i);
         }
 
-        for face_i in &old_admissible_faces {
+        for face_i in old_admissible_faces {
             //dbg!(old_admissible_faces);
             //dbg!(face_i);
             //dbg!(bridge);
@@ -206,7 +205,7 @@ impl TorusSearcher16 {
             attachments.clear(start);
 
             if attachments.is_empty() {
-                let face = self.faces[*face_i];
+                let face = self.faces[face_i];
                 let end = bridge.siblings(start).smallest().unwrap();
                 let mut start_endpoints = Seq16::new();
                 for (u, v) in self.embedding.face(face) {
@@ -222,13 +221,13 @@ impl TorusSearcher16 {
 
                     let mut new_bridges_idx = Vec::new();
 
-                    let mut new_faces_idx = HashSet::new();
-                    new_faces_idx.insert(*face_i);
+                    let mut new_faces_idx = Bitset64::new();
+                    new_faces_idx.set(face_i);
     
                     let mut ok = true;
 
                     for new_bridge in compute_bridges(&bridge, &self.h.clone()) {
-                        if let Some(i) = self.add_bridge(new_bridge, &new_faces_idx) {
+                        if let Some(i) = self.add_bridge(new_bridge, new_faces_idx) {
                             new_bridges_idx.push(i);
                         } else {
                             ok = false;
@@ -248,7 +247,7 @@ impl TorusSearcher16 {
                     }
                 }
             } else {
-                let (face, old_admissible_bridges) = self.remove_face(*face_i);
+                let (face, old_admissible_bridges) = self.remove_face(face_i);
                 let path = bridge.path(start, attachments).unwrap();
                 //dbg!(path);
                 let end = path.last().unwrap();
@@ -272,21 +271,21 @@ impl TorusSearcher16 {
                         let new_faces = self.embedding.embed_bisecting_path_after(&path, u, v);
                         self.h.union(&Graph16::from_path(&path));
 
-                        let mut new_faces_idx = HashSet::new();
-                        new_faces_idx.insert(self.faces.push(new_faces[0]));
-                        new_faces_idx.insert(self.faces.push(new_faces[1]));
+                        let mut new_faces_idx = Bitset64::new();
+                        new_faces_idx.set(self.faces.push(new_faces[0]));
+                        new_faces_idx.set(self.faces.push(new_faces[1]));
 
-                        for idx in &new_faces_idx {
-                            self.admissible_bridges.insert(*idx, HashSet::new());
+                        for idx in new_faces_idx {
+                            self.admissible_bridges.insert(idx, Bitset64::new());
                         }
 
                         let mut ok = true;
 
-                        for bridge_j in &old_admissible_bridges {
-                            for face_j in &new_faces_idx {
-                                self.update_faces(*bridge_j, *face_j);
+                        for bridge_j in old_admissible_bridges {
+                            for face_j in new_faces_idx {
+                                self.update_faces(bridge_j, face_j);
                             }
-                            if self.admissible_faces[*bridge_j].is_empty() {
+                            if self.admissible_faces[bridge_j].is_empty() {
                                 ok = false;
                                 break
                             }
@@ -296,7 +295,7 @@ impl TorusSearcher16 {
 
                         if ok {
                             for new_bridge in compute_bridges(&bridge, &self.h.clone()) {
-                                if let Some(i) = self.add_bridge(new_bridge, &new_faces_idx) {
+                                if let Some(i) = self.add_bridge(new_bridge, new_faces_idx) {
                                     new_bridges_idx.push(i);
                                 } else {
                                     ok = false;
@@ -325,18 +324,18 @@ impl TorusSearcher16 {
                     }
                 }
                 //dbg!("insert", face_i);
-                self.faces.insert(*face_i, face);
-                self.admissible_bridges.insert(*face_i, old_admissible_bridges);
-                for bridge_j in &self.admissible_bridges[*face_i] {
-                    self.admissible_faces[*bridge_j].insert(*face_i);
+                self.faces.insert(face_i, face);
+                self.admissible_bridges.insert(face_i, old_admissible_bridges);
+                for bridge_j in self.admissible_bridges[face_i] {
+                    self.admissible_faces[bridge_j].set(face_i);
                 }
             }
         }
         self.bridges.insert(bridge_i, bridge);
         self.admissible_faces.insert(bridge_i, old_admissible_faces);
 
-        for j in &self.admissible_faces[bridge_i] {
-            self.admissible_bridges[*j].insert(bridge_i);
+        for j in self.admissible_faces[bridge_i] {
+            self.admissible_bridges[j].set(bridge_i);
         }
         false
     }
