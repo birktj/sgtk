@@ -48,9 +48,10 @@ pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
     let h = find_kuratowski(*graph);
 
     for embedding in RotationSystem16::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
-        let mut searcher = TorusSearcher16::new(embedding, graph)?;
-        if searcher.search() {
-            return Some(searcher.embedding)
+        if let Some(mut searcher) = TorusSearcher16::new(embedding, graph) {
+            if searcher.search() {
+                return Some(searcher.embedding)
+            }
         }
     }
     None
