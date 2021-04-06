@@ -1,4 +1,4 @@
-use crate::seq::{Seq16, SeqPermutations16};
+use crate::seq::{Seq16, SeqPermutations};
 use crate::bitset::{Bitset, Bitset16};
 use crate::Graph16;
 
@@ -43,7 +43,7 @@ impl RotationSystem16 {
 
     pub fn enumerate(graph: &Graph16) -> RotationSystemEnumerate16 {
         let curr = RotationSystem16::simple(graph);
-        let permutations = [SeqPermutations16::empty(); 16];
+        let permutations = [SeqPermutations::empty(); 16];
 
         let flip_node = curr.nodes.into_iter()
             .filter(|i| curr.edges[*i].count() > 2)
@@ -252,7 +252,7 @@ impl std::fmt::Debug for RotationSystem16 {
 pub struct RotationSystemEnumerate16 {
     flip_node: Option<usize>,
     curr: RotationSystem16,
-    permutations: [SeqPermutations16; 16],
+    permutations: [SeqPermutations<16>; 16],
 }
 
 impl RotationSystemEnumerate16 {

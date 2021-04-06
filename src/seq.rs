@@ -1,26 +1,28 @@
+pub type Seq16 = Seq<16>;
+
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Seq16 {
+pub struct Seq<const N: usize> {
     len: usize,
-    values: [u8; 16]
+    values: [u8; N]
 }
 
-impl Seq16 {
-    pub const fn new() -> Seq16 {
-        Seq16 {
+impl<const N: usize> Seq<N> {
+    pub const fn new() -> Self {
+        Self {
             len: 0,
-            values: [0; 16]
+            values: [0; N]
         }
     }
 
-    pub const fn from_slice(slice: &[u8]) -> Seq16 {
-        let mut values = [0; 16];
+    pub const fn from_slice(slice: &[u8]) -> Self {
+        let mut values = [0; N];
         // We use a while loop to keep the function const
         let mut i = 0;
         while i < slice.len() {
             values[i] = slice[i];
             i += 1;
         }
-        Seq16 {
+        Self {
             len: slice.len(),
             values
         }
@@ -100,23 +102,23 @@ impl Seq16 {
         self.values.contains(&(val as u8))
     }
 
-    pub fn permutations(&self) -> SeqPermutations16 {
+    pub fn permutations(&self) -> SeqPermutations<N> {
         let mut seq = *self;
 
         (&mut seq.values[..seq.len]).sort();
 
-        SeqPermutations16 {
+        SeqPermutations {
             seq: Some(seq),
         }
     }
 }
 
 #[derive(Copy, Clone)]
-pub struct SeqPermutations16 {
-    seq: Option<Seq16>,
+pub struct SeqPermutations<const N: usize> {
+    seq: Option<Seq<N>>,
 }
 
-impl SeqPermutations16 {
+impl<const N: usize> SeqPermutations<N> {
     pub fn empty() -> Self {
         Self {
             seq: None
@@ -124,10 +126,10 @@ impl SeqPermutations16 {
     }
 }
 
-impl Iterator for SeqPermutations16 {
-    type Item = Seq16;
+impl<const N: usize> Iterator for SeqPermutations<N> {
+    type Item = Seq<N>;
 
-    fn next(&mut self) -> Option<Seq16> {
+    fn next(&mut self) -> Option<Seq<N>> {
         let res = self.seq;
 
         if let Some(mut seq) = self.seq {
@@ -161,7 +163,7 @@ impl Iterator for SeqPermutations16 {
     }
 }
 
-impl std::ops::Index<usize> for Seq16 {
+impl<const N: usize> std::ops::Index<usize> for Seq<N> {
     type Output = u8;
 
     fn index(&self, i: usize) -> &u8 {
@@ -170,14 +172,14 @@ impl std::ops::Index<usize> for Seq16 {
     }
 }
 
-impl std::ops::IndexMut<usize>for Seq16 {
+impl<const N: usize> std::ops::IndexMut<usize>for Seq<N> {
     fn index_mut(&mut self, i: usize) -> &mut u8 {
         debug_assert!(i < self.len);
         &mut self.values[i]
     }
 }
 
-impl std::fmt::Debug for Seq16 {
+impl<const N: usize> std::fmt::Debug for Seq<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }
