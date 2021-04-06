@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use crate::Graph16;
-use crate::slotmap::SlotMap;
+use crate::map::Map64;
 use crate::embedding::*;
 use crate::bitset::Bitset;
 
@@ -45,14 +45,14 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
     
     let mut embedding = RotationSystem16::simple(&h);
 
-    let mut faces = SlotMap::new();
-    let mut admissible_faces = SlotMap::new(); //[Bitset16::new(); 16];
-    let mut admissible_bridges = SlotMap::new(); // [HashSet<usize>; 16] = Default::default();
+    let mut faces = Map64::new();
+    let mut admissible_faces = Map64::new(); //[Bitset16::new(); 16];
+    let mut admissible_bridges = Map64::new(); // [HashSet<usize>; 16] = Default::default();
     let mut one_admissible = HashSet::new();
 
     let mut bridges = compute_bridges(graph, &h)
         //.map(|bridge| bridge.nodes())
-       .collect::<SlotMap<_>>();
+       .collect::<Map64<_>>();
     //let mut bridges = list_bridges(graph, &h);
 
     //dbg!(graph, h, &bridges);

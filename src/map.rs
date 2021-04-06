@@ -100,7 +100,7 @@ impl<T, B: Bitset, const N: usize> std::ops::Index<usize> for Map<T, B, N> {
     }
 }
 
-impl<T> std::ops::IndexMut<usize> for Map16<T> {
+impl<T, B: Bitset, const N: usize> std::ops::IndexMut<usize> for Map<T, B, N> {
     fn index_mut(&mut self, i: usize) -> &mut T {
         assert!(self.occupied.get(i));
         unsafe {
