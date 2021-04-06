@@ -45,16 +45,22 @@ fn main() {
     graph.add_edge(3, 5);
     graph.add_edge(4, 5);
     */
-    let graph = parse::from_upper_tri("9 000001110000111000111111111111111000");
+    //let graph = parse::from_upper_tri("9 111000011100001100001000011111111111").unwrap();
         //Graph16::regular(8);
+    let graph = parse::from_graph6("H_?xqKw");
 
     dbg!(graph);
 
     //dbg!(toroidal::find_kuratowski(graph));
 
     //dbg!(embedding::RotationSystem16::enumerate(&graph).count());
+    let mut graphs = Vec::new();
+    graphs.push((graph, None));
+    for minor in graph.minors().filter(|minor| minor.is_connected()) {
+        graphs.push((minor, None));
+    }
 
-    /*
+    viz::render_dot("test.pdf", &graphs);
     let embedding = toroidal::find_embedding(&graph);
 
     dbg!(&embedding);
@@ -62,13 +68,29 @@ fn main() {
     if let Some(embedding) = embedding {
         dbg!(embedding.genus());
     }
-    */
 
-    for minor in graph.minors() {
-        //viz::render_dot("test.pdf", &[(graph, None), (minor, None)]);
-        dbg!(minor);
+    let mut graph2 = graph.clone();
+    graph2.del_node(0);
+    assert!(graph2.is_connected());
+    dbg!(toroidal::find_embedding(&graph2));
+
+    for minor in graph.minors().filter(|minor| minor.is_connected()) {
+        dbg!(parse::to_graph6(&minor));
+        //dbg!(minor);
         let embedding = toroidal::find_embedding(&minor);
-        dbg!(&embedding);
+        //dbg!(&embedding);
+        if embedding.is_none() {
+            let k = toroidal::find_kuratowski(minor);
+            let mut graphs = Vec::new();
+            graphs.push((graph, None));
+            graphs.push((minor, None));
+            graphs.push((k, None));
+            graphs.push((minor.difference(&k), None));
+            for bridge in toroidal::compute_bridges(&minor, &k) {
+                graphs.push((bridge, None));
+            }
+            viz::render_dot("test.pdf", &graphs);
+        }
         assert!(embedding.is_some());
     }
 

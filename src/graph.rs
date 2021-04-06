@@ -535,6 +535,19 @@ impl Graph16 {
         }
     }
 
+    pub fn subgraphs(&self) -> impl Iterator<Item = Graph16> {
+        let graph = *self;
+        self.nodes().into_iter().map(move |u| {
+            let mut graph = graph;
+            graph.del_node(u);
+            graph
+        }).chain(self.edges().map(move |(u, v)| {
+            let mut graph = graph;
+            graph.del_edge(u, v);
+            graph
+        }))
+    }
+
     pub fn minors(&self) -> impl Iterator<Item = Graph16> {
         let graph = *self;
         self.nodes().into_iter().map(move |u| {

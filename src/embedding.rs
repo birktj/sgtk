@@ -193,6 +193,11 @@ impl RotationSystem16 {
         self.insert_edge(v, v_after, u);
     }
 
+    pub fn embed_edge_before(&mut self, u: usize, u_before: usize, v: usize) {
+        self.insert_edge(u, usize::from(self.order_inv[u][u_before]), v);
+        self.insert_edge_any(v, u);
+    }
+
     pub fn embed_bisecting_path(&mut self, face: Face16, path: &Seq16) -> [Face16; 2] {
         let start = path.first().unwrap();
         let end   = path.last().unwrap();

@@ -2,8 +2,8 @@ use sgtk::Graph16;
 use std::collections::HashSet;
 
 fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
-    for minor in graph.minors() {
-        if minor.is_connected() && sgtk::toroidal::find_embedding(&minor).is_none() {
+    for minor in graph.minors().filter(|minor| minor.is_connected()) {
+        if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)
         }
     }
@@ -12,17 +12,43 @@ fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
 }
 
 fn main() {
+    let mut known_obstructions = HashSet::new();
+    for line in std::fs::read_to_string("torus-obstructions.txt").unwrap().lines() {
+        if let Some(obstruction) = sgtk::parse::from_upper_tri(line) {
+            /*
+            dbg!(line);
+            if !obstruction.is_connected() {
+                continue
+            }
+            //dbg!(&obstruction);
+            assert!(sgtk::toroidal::find_embedding(&obstruction).is_none());
+            for minor in obstruction.subgraphs().filter(|minor| minor.is_connected()) {
+                //dbg!(&minor);
+                assert!(sgtk::toroidal::find_embedding(&minor).is_some());
+            }
+            */
+            known_obstructions.insert(obstruction.to_canonical());
+        }
+    }
+
     let mut obstructions = HashSet::new();
 
-    for _ in 0..1 {
-        //let graph = sgtk::random::graph16(9);
-        let graph = sgtk::parse::from_upper_tri("9 000001110000111000111111111111111000");
+    for _ in 0..100 {
+        let graph = sgtk::random::graph16(15);
         if !graph.is_connected() {
             continue
         }
         //dbg!(&graph);
         if sgtk::toroidal::find_embedding(&graph).is_none() {
-            obstructions.insert(find_toroidal_obstruction(graph));
+            let obstruction = find_toroidal_obstruction(graph);
+            assert!(sgtk::toroidal::find_embedding(&obstruction).is_none());
+            if known_obstructions.contains(&obstruction) {
+                eprintln!("It is known");
+            } else {
+                dbg!(sgtk::parse::to_graph6(&obstruction));
+                eprintln!("It is not known");
+                obstructions.insert(obstruction);
+            }
         }
     }
 

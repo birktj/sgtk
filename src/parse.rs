@@ -46,7 +46,6 @@ pub fn to_graph6(graph: &Graph16) -> String {
     let mut j = 0;
     for (i, u) in graph.nodes().into_iter().enumerate().skip(1) {
         for v in graph.nodes().into_iter().take(i) {
-            dbg!(u, v);
             bits = bits << 1;
             if graph.has_edge(u, v) {
                 bits |= 1;
@@ -65,9 +64,13 @@ pub fn to_graph6(graph: &Graph16) -> String {
     res
 }
 
-pub fn from_upper_tri(mut s: &str) -> Graph16 {
+pub fn from_upper_tri(mut s: &str) -> Option<Graph16> {
+    s = s.trim();
     let sn = s.split(' ').next().unwrap();
     let n = sn.parse::<usize>().unwrap();
+    if n > 16 {
+        return None
+    }
     s = s.strip_prefix(sn).unwrap();
 
     let mut graph = Graph16::new(n);
@@ -81,5 +84,6 @@ pub fn from_upper_tri(mut s: &str) -> Graph16 {
             }
         }
     }
-    graph
+    assert!(edges.next().is_none());
+    Some(graph)
 }

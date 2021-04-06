@@ -23,7 +23,7 @@ pub fn find_kuratowski(mut graph: Graph16) -> Graph16 {
 }
 
 #[inline(always)]
-fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator<Item = Graph16> {
+pub fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator<Item = Graph16> {
     graph.edges_from_to(h.nodes(), h.nodes()).filter(move |(u, v)| {
         !h.has_edge(*u, *v)
     })
@@ -196,10 +196,13 @@ impl TorusSearcher16 {
                     }
                 }
                 for u in start_endpoints.iter() {
+                    let face_nodes_start = self.embedding.face_nodes(face);
                     let u = usize::from(*u);
-                    self.embedding.embed_edge_after(start, u, end, start);
+                    self.embedding.embed_edge_before(start, u, end);
                     self.h.add_node(end);
                     self.h.add_edge(start, end);
+
+                    let face_nodes_end = self.embedding.face_nodes(face);
 
                     //dbg!(&self.embedding);
 
