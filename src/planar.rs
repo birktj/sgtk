@@ -284,6 +284,29 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
                 }
             }
         }
-            
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn k4_planar() {
+        let graph = Graph16::regular(4);
+        assert!(fastdmp(&graph).is_some());
+    }
+
+    #[test]
+    fn k5_not_planar() {
+        let graph = Graph16::regular(5);
+        assert!(fastdmp(&graph).is_none());
+    }
+
+    #[test]
+    fn k5_minors_planar() {
+        for graph in Graph16::regular(5).minors() {
+            assert!(fastdmp(&graph).is_some());
+        }
     }
 }
