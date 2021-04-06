@@ -24,5 +24,9 @@ harness = false
 name = "embedding"
 harness = false
 
+[[bench]]
+name = "toroidal"
+harness = false
+
 [profile.release]
 debug = 1

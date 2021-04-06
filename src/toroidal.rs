@@ -4,6 +4,7 @@ use crate::slotmap::SlotMap;
 use crate::seq::Seq16;
 use crate::planar;
 use crate::embedding::*;
+use crate::bitset::Bitset;
 
 pub fn find_kuratowski(mut graph: Graph16) -> Graph16 {
     for (u, v) in graph.edges() {
@@ -41,11 +42,29 @@ pub fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iter
 }
 
 pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
+    let node_count = graph.nodes().count();
+    let edge_count = graph.edges().count();
+
+    if edge_count > 3*node_count {
+        return None
+    }
+
     if let Some(embedding) = planar::fastdmp(graph) {
         return Some(embedding)
     }
 
     let h = find_kuratowski(*graph);
+
+    for mut bridge in graph.subgraph(h.nodes().invert()).components() {
+        let attachments = graph.neighbouring(h.nodes())
+            .nodes().intersection(&bridge.nodes());
+        let u = bridge.nodes().invert().smallest().unwrap();
+        bridge.add_node(u);
+        bridge.add_edges(u, attachments);
+        if planar::fastdmp(&bridge).is_none() {
+            return None
+        }
+    }
 
     for embedding in RotationSystem16::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
         if let Some(mut searcher) = TorusSearcher16::new(embedding, graph) {
@@ -196,15 +215,10 @@ impl TorusSearcher16 {
                     }
                 }
                 for u in start_endpoints.iter() {
-                    let face_nodes_start = self.embedding.face_nodes(face);
                     let u = usize::from(*u);
                     self.embedding.embed_edge_before(start, u, end);
                     self.h.add_node(end);
                     self.h.add_edge(start, end);
-
-                    let face_nodes_end = self.embedding.face_nodes(face);
-
-                    //dbg!(&self.embedding);
 
                     let mut new_bridges_idx = Vec::new();
 
@@ -334,7 +348,8 @@ mod tests {
 
     #[test]
     fn check_known_minor() {
-        let graph = crate::parse::from_upper_tri("9 000001110000111000111111111111111000");
+        let graph = crate::parse::from_upper_tri("9 000001110000111000111111111111111000")
+            .unwrap();
         assert!(find_embedding(&graph).is_none());
         for minor in graph.minors() {
             assert!(find_embedding(&minor).is_some());

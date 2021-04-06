@@ -1,4 +1,5 @@
 use crate::Graph16;
+use crate::bitset::Bitset;
 
 pub fn from_graph6(mut s: &str) -> Graph16 {
     let n = if s.starts_with("~~") {

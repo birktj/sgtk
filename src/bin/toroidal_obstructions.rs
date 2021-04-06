@@ -1,4 +1,5 @@
 use sgtk::Graph16;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
@@ -31,9 +32,10 @@ fn main() {
         }
     }
 
-    let mut obstructions = HashSet::new();
+    let mut obstructions = HashMap::new();
+    let mut new_obstructions = HashSet::new();
 
-    for _ in 0..100 {
+    for _ in 0..200 {
         let graph = sgtk::random::graph16(15);
         if !graph.is_connected() {
             continue
@@ -41,24 +43,25 @@ fn main() {
         //dbg!(&graph);
         if sgtk::toroidal::find_embedding(&graph).is_none() {
             let obstruction = find_toroidal_obstruction(graph);
-            assert!(sgtk::toroidal::find_embedding(&obstruction).is_none());
-            if known_obstructions.contains(&obstruction) {
-                eprintln!("It is known");
-            } else {
-                dbg!(sgtk::parse::to_graph6(&obstruction));
+            dbg!(sgtk::parse::to_graph6(&obstruction));
+            *obstructions.entry(obstruction).or_insert(0) += 1;
+            if !known_obstructions.contains(&obstruction) {
                 eprintln!("It is not known");
-                obstructions.insert(obstruction);
+                new_obstructions.insert(obstruction);
             }
         }
     }
 
-
-    let obstructions = obstructions.into_iter()
-        .map(|g| (g, None)).collect::<Vec<_>>();
-
     dbg!(obstructions.len());
 
-    sgtk::viz::render_dot("test.pdf", &obstructions);
+    dbg!(&new_obstructions);
+
+    let new_obstructions = new_obstructions.into_iter()
+        .map(|g| (g, None)).collect::<Vec<_>>();
+
+    dbg!(new_obstructions.len());
+
+    sgtk::viz::render_dot("test.pdf", &new_obstructions);
 
     /*
     let mut graph = sgtk::random::graph16(10);

@@ -1,18 +1,20 @@
-use crate::bitset::Bitset16;
+use crate::bitset::{Bitset, Bitset16};
 use std::mem::MaybeUninit;
 
-pub struct Map16<T> {
-    occupied: Bitset16,
-    values: [MaybeUninit<T>; 16],
+pub type Map16<T> = Map<T, Bitset16, 16>;
+
+pub struct Map<T, B: Bitset, const N: usize> {
+    occupied: B,
+    values: [MaybeUninit<T>; N],
 }
 
-impl<T> Map16<T> {
+impl<T, B: Bitset, const N: usize> Map<T, B, N> {
     const UNINIT: MaybeUninit<T> = MaybeUninit::uninit();
 
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            occupied: Bitset16::new(),
-            values: [Self::UNINIT; 16],
+            occupied: B::new(),
+            values: [Self::UNINIT; N],
         }
     }
 
@@ -56,36 +58,38 @@ impl<T> Map16<T> {
     pub fn count(&self) -> usize {
         self.occupied.count()
     }
+}
 
-    pub fn iter(&self) -> IterMap16<T> {
-        IterMap16 {
+impl<T, B: Bitset + Clone, const N: usize> Map<T, B, N> {
+    pub fn iter(&self) -> IterMap<T, B, N> {
+        IterMap {
             map: &self,
-            elems: self.occupied,
+            elems: self.occupied.clone(),
         }
     }
 }
 
-impl<T: Clone> Clone for Map16<T> {
-    fn clone(&self) -> Map16<T> {
-        let mut values = [Self::UNINIT; 16];
+impl<T: Clone, B: Bitset + Clone, const N: usize> Clone for Map<T, B, N> {
+    fn clone(&self) -> Self {
+        let mut values = [Self::UNINIT; N];
         for (i, v) in self.iter() {
             values[i] = MaybeUninit::new(v.clone());
         }
-        Map16 {
-            occupied: self.occupied,
+        Self {
+            occupied: self.occupied.clone(),
             values,
         }
     }
 }
 
-impl<T> Drop for Map16<T> {
+impl<T, B: Bitset, const N: usize> Drop for Map<T, B, N> {
     fn drop(&mut self) {
         // Easiest way to call `assume_init` for all values and drop them
         while let Some(_) = self.pop() {}
     }
 }
 
-impl<T> std::ops::Index<usize> for Map16<T> {
+impl<T, B: Bitset, const N: usize> std::ops::Index<usize> for Map<T, B, N> {
     type Output = T;
 
     fn index(&self, i: usize) -> &T {
@@ -122,11 +126,11 @@ impl<T> IntoIterator for Map16<T> {
     }
 }
 
-impl<'a, T> IntoIterator for &'a Map16<T> {
+impl<'a, T, B: Bitset + Clone, const N: usize> IntoIterator for &'a Map<T, B, N> {
     type Item = (usize, &'a T);
-    type IntoIter = IterMap16<'a, T>;
+    type IntoIter = IterMap<'a, T, B, N>;
 
-    fn into_iter(self) -> IterMap16<'a, T> {
+    fn into_iter(self) -> IterMap<'a, T, B, N> {
         self.iter()
     }
 }
@@ -141,12 +145,12 @@ impl<T> std::iter::FromIterator<T> for Map16<T> {
     }
 }
 
-pub struct IterMap16<'a, T> {
-    map: &'a Map16<T>,
-    elems: Bitset16,
+pub struct IterMap<'a, T, B: Bitset, const N: usize> {
+    map: &'a Map<T, B, N>,
+    elems: B,
 }
 
-impl<'a, T> Iterator for IterMap16<'a, T> {
+impl<'a, T, B: Bitset, const N: usize> Iterator for IterMap<'a, T, B, N> {
     type Item = (usize, &'a T);
 
     fn next(&mut self) -> Option<Self::Item> {

@@ -1,4 +1,4 @@
-use crate::bitset::*;
+use crate::bitset::{self, Bitset, Bitset16};
 use crate::seq::*;
 use crate::iso;
 
@@ -7,8 +7,8 @@ pub struct EdgeIter16 {
     u: usize,
     to: Bitset16,
     from: Bitset16,
-    iter_u: IterBitset16,
-    iter_v: IterBitset16,
+    iter_u: bitset::Iter16,
+    iter_v: bitset::Iter16,
 }
 
 impl Iterator for EdgeIter16 {

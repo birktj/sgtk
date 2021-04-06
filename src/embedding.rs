@@ -1,5 +1,5 @@
 use crate::seq::{Seq16, SeqPermutations16};
-use crate::bitset::Bitset16;
+use crate::bitset::{Bitset, Bitset16};
 use crate::Graph16;
 
 #[derive(Clone)]

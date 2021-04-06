@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use crate::Graph16;
-use crate::bitset::Bitset16;
+use crate::bitset::{Bitset, Bitset16};
 use crate::iso::SearchTree;
 
 pub struct Enumerator16 {

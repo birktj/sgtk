@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 use crate::Graph16;
-use crate::map::Map16;
 use crate::slotmap::SlotMap;
-use crate::bitset::Bitset16;
 use crate::embedding::*;
+use crate::bitset::Bitset;
 
 #[inline(always)]
 fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator<Item = Graph16> {
@@ -40,9 +39,9 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
     
     let mut embedding = RotationSystem16::simple(&h);
 
-    let mut faces = Map16::new();
+    let mut faces = SlotMap::new();
     let mut admissible_faces = SlotMap::new(); //[Bitset16::new(); 16];
-    let mut admissible_bridges: [HashSet<usize>; 16] = Default::default();
+    let mut admissible_bridges = SlotMap::new(); // [HashSet<usize>; 16] = Default::default();
     let mut one_admissible = HashSet::new();
 
     let mut bridges = compute_bridges(graph, &h)
@@ -53,18 +52,19 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
     //dbg!(graph, h, &bridges);
 
     for (i, _) in bridges.iter() {
-        admissible_faces.insert(i, Bitset16::new());
+        admissible_faces.insert(i, HashSet::new());
     }
 
     for face in embedding.faces() {
         let face_nodes = embedding.face_nodes(face);
         let i = faces.push(face);
+        admissible_bridges.insert(i, HashSet::new());
 
         for (j, bridge) in bridges.iter() {
             let attachments = h.nodes().intersection(&bridge.nodes());
 
             if face_nodes.is_superset(&attachments) {
-                admissible_faces[j].set(i);
+                admissible_faces[j].insert(i);
                 admissible_bridges[i].insert(j);
             }
         }
@@ -75,7 +75,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             // FIXME: can this happen at this point?
             // A bridge has no addmissible faces, no embedding is possible
             return None
-        } else if admissible_faces[i].count() == 1 {
+        } else if admissible_faces[i].len() == 1 {
             one_admissible.insert(i);
         }
     }
@@ -110,8 +110,8 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
         let old_admissible_faces = admissible_faces.take(i).unwrap();
         //admissible_faces[i] = Bitset16::new();
 
-        for face in old_admissible_faces {
-            admissible_bridges[face].remove(&i);
+        for face in &old_admissible_faces {
+            admissible_bridges[*face].remove(&i);
         }
 
         //dbg!(bridge);
@@ -153,15 +153,15 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
                 let j = bridges.push(new_bridge);
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
                 //dbg!(attachments);
-                admissible_faces.insert(j, Bitset16::new());
+                admissible_faces.insert(j, HashSet::new());
 
-                for face_j in old_admissible_faces {
-                    let face = faces[face_j];
+                for face_j in &old_admissible_faces {
+                    let face = faces[*face_j];
                     //dbg!(face_j);
                     //dbg!(embedding.face_nodes(face));
                     if embedding.face_nodes(face).is_superset(&attachments) {
-                        admissible_faces[j].set(face_j);
-                        admissible_bridges[face_j].insert(j);
+                        admissible_faces[j].insert(*face_j);
+                        admissible_bridges[*face_j].insert(j);
                     }
                 }
                 //dbg!(admissible_faces[j]);
@@ -169,7 +169,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
                     // Bridge with no admissible faces, there is no embedding
                     return None
                 }
-                if admissible_faces[j].count() == 1 {
+                if admissible_faces[j].len() == 1 {
                     one_admissible.insert(j);
                 } else {
                     one_admissible.remove(&j);
@@ -203,7 +203,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             let path = bridge.path(start, attachments).unwrap();
             //dbg!(path);
 
-            let face_i = old_admissible_faces.smallest().unwrap();
+            let face_i = *old_admissible_faces.iter().next().unwrap();
             let face = faces.take(face_i).unwrap();
 
             //dbg!(face_i);
@@ -218,24 +218,25 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             //dbg!(embedding.face(new_faces[0]).collect::<Vec<_>>());
             //dbg!(embedding.face(new_faces[1]).collect::<Vec<_>>());
 
-            let old_admissible_bridges = std::mem::replace(
-                &mut admissible_bridges[face_i],
-                HashSet::new());
+            let old_admissible_bridges = admissible_bridges.take(face_i).unwrap();
 
             //admissible_bridges[face_i] = Bitset16::new();
 
             let mut new_faces_idx = [0; 2];
             new_faces_idx[0] = faces.push(new_faces[0]);
             new_faces_idx[1] = faces.push(new_faces[1]);
+            for j in &new_faces_idx {
+                admissible_bridges.insert(*j, HashSet::new());
+            }
 
             for bridge in old_admissible_bridges {
-                admissible_faces[bridge].clear(face_i);
+                admissible_faces[bridge].remove(&face_i);
 
                 let attachments = h.nodes().intersection(&bridges[bridge].nodes());
     
                 for face_j in &new_faces_idx {
                     if embedding.face_nodes(faces[*face_j]).is_superset(&attachments) {
-                        admissible_faces[bridge].set(*face_j);
+                        admissible_faces[bridge].insert(*face_j);
                         admissible_bridges[*face_j].insert(bridge);
                     }
                 }
@@ -244,7 +245,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
                     // Bridge with no admissible faces, there is no embedding
                     return None
                 }
-                if admissible_faces[bridge].count() == 1 {
+                if admissible_faces[bridge].len() == 1 {
                     // FIXME: make sure we arent pushing here too many times
                     one_admissible.insert(bridge);
                 } else {
@@ -261,14 +262,14 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
                 let j = bridges.push(new_bridge);
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
                 //dbg!(attachments);
-                admissible_faces.insert(j, Bitset16::new());
+                admissible_faces.insert(j, HashSet::new());
 
                 for face_j in &new_faces_idx {
                     let face = faces[*face_j];
                     //dbg!(face_j);
                     //dbg!(embedding.face_nodes(face));
                     if embedding.face_nodes(face).is_superset(&attachments) {
-                        admissible_faces[j].set(*face_j);
+                        admissible_faces[j].insert(*face_j);
                         admissible_bridges[*face_j].insert(j);
                     }
                 }
@@ -277,7 +278,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
                     // Bridge with no admissible faces, there is no embedding
                     return None
                 }
-                if admissible_faces[j].count() == 1 {
+                if admissible_faces[j].len() == 1 {
                     one_admissible.insert(j);
                 } else {
                     one_admissible.remove(&j);

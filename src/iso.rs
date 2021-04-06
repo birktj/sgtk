@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use crate::graph::{Graph16, Coloring16};
 use crate::seq::Seq16;
-use crate::bitset::Bitset16;
+use crate::bitset::{Bitset, Bitset16};
 
 pub fn refine(graph: &Graph16, mut coloring: Coloring16, seq: Seq16) -> Coloring16 {
     let mut cell_set = Bitset16::new();
