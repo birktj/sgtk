@@ -36,15 +36,18 @@ impl Bitset16 {
         self.bitset == 0
     }
 
-    pub const fn get(&self, i: usize) -> bool {
+    pub fn get(&self, i: usize) -> bool {
+        debug_assert!(i < 16);
         (self.bitset & (1 << i)) > 0
     }
 
     pub fn set(&mut self, i: usize) {
+        debug_assert!(i < 16);
         self.bitset |= 1 << i;
     }
 
     pub fn clear(&mut self, i: usize) {
+        debug_assert!(i < 16);
         self.bitset &= !(1 << i);
     }
 

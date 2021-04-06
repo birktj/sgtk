@@ -14,8 +14,8 @@ fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
 fn main() {
     let mut obstructions = HashSet::new();
 
-    for _ in 0..100 {
-        let graph = sgtk::random::graph16(10);
+    for _ in 0..10000 {
+        let graph = sgtk::random::graph16(8);
         if !graph.is_connected() {
             continue
         }
@@ -27,6 +27,8 @@ fn main() {
 
     let obstructions = obstructions.into_iter()
         .map(|g| (g, None)).collect::<Vec<_>>();
+
+    dbg!(obstructions.len());
 
     sgtk::viz::render_dot("test.pdf", &obstructions);
 

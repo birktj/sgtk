@@ -14,11 +14,12 @@ fn find_planar_obstruction(graph: Graph16) -> Graph16 {
 fn main() {
     let mut obstructions = HashSet::new();
 
-    for _ in 0..10 {
-        let graph = sgtk::random::graph16(10);
+    for _ in 0..100 {
+        let graph = sgtk::random::graph16(14);
         if !graph.is_connected() {
             continue
         }
+        dbg!(&graph);
         if sgtk::planar::fastdmp(&graph).is_none() {
             obstructions.insert(find_planar_obstruction(graph));
         }

@@ -1,6 +1,7 @@
 pub mod seq;
 pub mod smallvec;
 pub mod map;
+pub mod slotmap;
 pub mod bitset;
 pub mod graph;
 pub mod viz;
