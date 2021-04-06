@@ -30,6 +30,12 @@ fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator
 }
 
 pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
+    let node_count = graph.nodes().count();
+    let edge_count = graph.edges().count();
+
+    if node_count >= 3 && edge_count + 6 > 3*node_count {
+        return None
+    }
     let mut h = if let Some(c) = graph.cycle() {
         c
     } else {
