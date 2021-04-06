@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use crate::Graph16;
-use crate::slotmap::SlotMap;
+use crate::map::Map64;
 use crate::seq::Seq16;
 use crate::planar;
 use crate::embedding::*;
@@ -78,23 +78,23 @@ pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
 
 struct TorusSearcher16 {
     embedding: RotationSystem16,
-    admissible_faces: SlotMap<HashSet<usize>>, //[Bitset16; 16],
-    admissible_bridges: SlotMap<HashSet<usize>>, // [HashSet<usize>; 16],
-    bridges: SlotMap<Graph16>,
-    faces: SlotMap<Face16>,
+    admissible_faces: Map64<HashSet<usize>>, //[Bitset16; 16],
+    admissible_bridges: Map64<HashSet<usize>>, // [HashSet<usize>; 16],
+    bridges: Map64<Graph16>,
+    faces: Map64<Face16>,
     h: Graph16,
 }
 
 impl TorusSearcher16 {
     fn new(embedding: RotationSystem16, graph: &Graph16) -> Option<Self> {
         let h = embedding.to_graph();
-        let faces: SlotMap<_> = embedding.faces().collect();
-        let bridges: SlotMap<_> = compute_bridges(graph, &h).collect();
+        let faces: Map64<_> = embedding.faces().collect();
+        let bridges: Map64<_> = compute_bridges(graph, &h).collect();
 
         //dbg!(&bridges);
 
-        let mut admissible_faces   = SlotMap::new(); //::<Bitset16>::new(); //  [Bitset16::new(); 16];
-        let mut admissible_bridges = SlotMap::new(); // [HashSet<usize>; 16] = Default::default();
+        let mut admissible_faces   = Map64::new(); //::<Bitset16>::new(); //  [Bitset16::new(); 16];
+        let mut admissible_bridges = Map64::new(); // [HashSet<usize>; 16] = Default::default();
 
         for (i, _) in faces.iter() {
             admissible_bridges.insert(i, HashSet::new());
