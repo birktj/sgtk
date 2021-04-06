@@ -1,45 +1,44 @@
+use std::mem::MaybeUninit;
+
 pub struct Smallvec<T, const N: usize> {
     len: usize,
-    values: [T; N],
+    values: [MaybeUninit<T>; N],
 }
 
-impl<T: Default + Copy, const N: usize> Smallvec<T, N> {
+impl<T, const N: usize> Smallvec<T, N> {
     pub fn new() -> Self {
+        let values = unsafe { MaybeUninit::uninit().assume_init() };
         Self {
             len: 0,
-            values: [T::default(); N],
+            values,
         }
     }
-}
 
-impl<T: Copy, const N: usize> Smallvec<T, N> {
     pub fn pop(&mut self) -> Option<T> {
         if self.len == 0 {
             None
         } else {
             self.len -= 1;
-            Some(self.values[self.len])
+            let res = std::mem::replace(&mut self.values[self.len], MaybeUninit::uninit());
+            Some(unsafe { res.assume_init() })
         }
     }
-}
 
-impl<T, const N: usize> Smallvec<T, N> {
     pub fn push(&mut self, val: T) {
-        self.values[self.len] = val;
+        self.values[self.len] = MaybeUninit::new(val);
         self.len += 1;
     }
-
 
     pub const fn len(&self) -> usize {
         self.len
     }
 
     pub fn slice(&self) -> &[T] {
-        &self.values[0..self.len]
+        unsafe { &*(&self.values[0..self.len] as *const [MaybeUninit<T>] as *const [T]) }
     }
 
     pub fn slice_mut(&mut self) -> &mut [T] {
-        &mut self.values[0..self.len]
+        unsafe { &mut *(&mut self.values[0..self.len] as *mut [MaybeUninit<T>] as *mut [T]) }
     }
 
     pub const fn is_empty(&self) -> bool {
@@ -47,7 +46,7 @@ impl<T, const N: usize> Smallvec<T, N> {
     }
 
     pub fn iter(&self) -> std::slice::Iter<T> {
-        (&self.values[..self.len]).iter()
+        self.slice().iter()
     }
 }
 
@@ -55,15 +54,15 @@ impl<T, const N: usize> std::ops::Index<usize> for Smallvec<T, N> {
     type Output = T;
 
     fn index(&self, i: usize) -> &T {
-        debug_assert!(i < self.len);
-        &self.values[i]
+        assert!(i < self.len);
+        unsafe { &*self.values[i].as_ptr() }
     }
 }
 
 impl<T, const N: usize> std::ops::IndexMut<usize> for Smallvec<T, N> {
     fn index_mut(&mut self, i: usize) -> &mut T {
-        debug_assert!(i < self.len);
-        &mut self.values[i]
+        assert!(i < self.len);
+        unsafe { &mut *self.values[i].as_mut_ptr() }
     }
 }
 
