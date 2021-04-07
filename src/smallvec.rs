@@ -50,6 +50,12 @@ impl<T, const N: usize> Smallvec<T, N> {
     }
 }
 
+impl<T, const N: usize> Drop for Smallvec<T, N> {
+    fn drop(&mut self) {
+        while let Some(_) = self.pop() {}
+    }
+}
+
 impl<T, const N: usize> std::ops::Index<usize> for Smallvec<T, N> {
     type Output = T;
 
