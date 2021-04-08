@@ -60,23 +60,54 @@ pub fn individualize(mut coloring: Coloring16, u: usize) -> Coloring16 {
     coloring
 }
 
+pub struct SearchResults {
+    pub automorphisms: HashSet<Seq16>,
+    pub canonical_relabeling: Seq16,
+    pub canonical_graph: Graph16,
+    pub orbits: Seq16,
+}
+
+pub fn search_tree(graph: Graph16) -> SearchResults {
+    let mut coloring = Coloring16::new();
+
+    for u in graph.nodes() {
+        coloring.set(u, 0);
+    }
+
+    let mut tree = SearchTree::new(graph);
+    tree.start_search(coloring);
+
+    SearchResults {
+        automorphisms: tree.automorphisms,
+        canonical_relabeling: tree.largest_invariant.unwrap().0,
+        canonical_graph: tree.largest_invariant.unwrap().1.end_graph.unwrap(),
+        orbits: tree.orbits,
+    }
+}
+
 pub struct SearchTree {
     graph: Graph16,
     automorphisms: HashSet<Seq16>,
     autonodes: HashSet<Seq16>,
     largest_invariant: Option<(Seq16, NodeInvariant)>,
     first_node: Option<(Seq16, NodeInvariant)>,
+    orbits: Seq16,
     pub auto_prune: bool,
 }
 
 impl SearchTree {
     pub fn new(graph: Graph16) -> SearchTree {
+        let mut orbits = Seq16::new();
+        for i in 0..16 {
+            orbits.push(i);
+        }
         SearchTree {
             graph,
             automorphisms: HashSet::new(),
             autonodes: HashSet::new(),
             largest_invariant: None,
             first_node: None,
+            orbits,
             auto_prune: true,
         }
     }
@@ -158,6 +189,7 @@ impl SearchTree {
                         let mut autonode = Seq16::new();
                         for i in seq.iter() {
                             autonode.push(perm[*i as usize] as usize);
+                            self.orbits[*i as usize] = std::cmp::min(self.orbits[*i as usize], perm[*i as usize]);
                         }
                         if self.autonodes.contains(&autonode) {
                             pruned = true;

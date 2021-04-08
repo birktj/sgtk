@@ -9,6 +9,10 @@ fn main() {
         }
     }
 
+    enumeration::Enumerator16::new(4).enumerate();
+
+    return;
+
     /*
     for n in 1..16 {
         let graph = Graph16::regular(n);

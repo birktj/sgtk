@@ -1,3 +1,34 @@
+use sgtk::*;
+
+fn main() {
+    let mut enumerator = enumeration::Enumerator16::new(9)
+        .set_prune(|g| {
+            if g.is_connected() {
+                //toroidal::find_embedding(g).is_none()
+                planar::fastdmp(g).is_none()
+            } else {
+                false
+            }
+        });
+        //.set_prune(|g| !g.is_connected()); // || planar::fastdmp(g).is_none());
+
+    enumerator.enumerate();
+
+    enumerator.graphs.retain(|g| g.is_connected());
+
+    dbg!(enumerator.counts);
+    println!("{}", enumerator.graphs.len());
+
+    /*
+    let graphs = enumerator.graphs.into_iter()
+        .map(|graph| (graph, None))
+        .collect::<Vec<_>>();
+
+    viz::render_dot("test.pdf", &graphs);
+    */
+}
+
+/*
 use std::collections::HashSet;
 use sgtk::Graph16;
 use sgtk::planar;
@@ -40,10 +71,14 @@ impl Enumerator16 {
             let graph = graph.to_canonical();
             self.canonical_count += 1;
 
+            if self.graphs.contains(&graph) {
+                continue
+            }
+
             //assert_eq!(graph, graph.to_canonical(), "original: {:?}", orig_graph);
             
             //if !self.graphs.contains(&graph) && planar::dmp(&graph).is_some() {
-            if !self.graphs.contains(&graph) && planar::fastdmp(&graph).is_some() {
+            if planar::fastdmp(&graph).is_some() {
                 self.graphs.insert(graph);
                 self.enumerate_inner(graph, n+1);
             }
@@ -104,3 +139,4 @@ fn main() {
 
     //viz::render_dot("test.pdf", &graphs);
 }
+*/

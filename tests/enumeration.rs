@@ -26,7 +26,6 @@ fn enumerate_all_graphs7() {
 }
 
 #[test]
-#[ignore]
 fn enumerate_all_graphs8() {
     let mut enumerator = enumeration::Enumerator16::new(8);
     enumerator.enumerate();
