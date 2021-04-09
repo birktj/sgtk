@@ -1,9 +1,12 @@
 use crate::seq::*;
+use crate::permutation::{Permutation, SmallPerm};
 
 pub trait Bitset {
     const SIZE: usize;
 
     type Enumerate: Iterator<Item = Self>;
+    type Iter: Iterator<Item = usize>;
+    type Perm: Permutation;
 
     fn new() -> Self;
 
@@ -36,6 +39,10 @@ pub trait Bitset {
     fn is_superset(&self, other: &Self) -> bool;
 
     fn enumerate(maxn: usize) -> Self::Enumerate;
+
+    fn shuffle(&mut self, permutation: &Self::Perm);
+
+    fn iter(&self) -> Self::Iter;
 }
 
 macro_rules! bit_set {
@@ -61,6 +68,10 @@ macro_rules! bit_set {
             const SIZE: usize = $size;
 
             type Enumerate = $iter_enum;
+
+            type Perm = SmallPerm<$size>;
+
+            type Iter = $iter;
 
             fn new() -> Self {
                 Self {
@@ -149,6 +160,21 @@ macro_rules! bit_set {
                     finished: false,
                     last: None,
                 }
+            }
+
+            fn shuffle(&mut self, permutation: &Self::Perm) {
+                let old = *self;
+                self.bitset = 0;
+                
+                for (i, j) in permutation.iter() {
+                    if old.get(i) {
+                        self.set(j);
+                    }
+                }
+            }
+
+            fn iter(&self) -> Self::Iter {
+                self.into_iter()
             }
         }
 
