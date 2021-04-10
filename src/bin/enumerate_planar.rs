@@ -1,4 +1,5 @@
 use sgtk::*;
+use graph::Graph;
 
 fn main() {
     let mut enumerator = enumeration::Enumerator16::new(9)

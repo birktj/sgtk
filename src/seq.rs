@@ -6,6 +6,12 @@ pub trait Seq {
     fn get(&self, i: usize) -> usize;
     fn push(&mut self, v: usize);
     fn pop(&mut self) -> Option<usize>;
+    fn reverse(&mut self) where Self: Sized {
+        let mut old = std::mem::replace(self, Self::new());
+        while let Some(i) = old.pop() {
+            self.push(i);
+        }
+    }
     fn iter(&self) -> SeqIter<Self> {
         SeqIter {
             i: 0,

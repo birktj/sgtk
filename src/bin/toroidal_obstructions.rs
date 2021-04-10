@@ -1,9 +1,9 @@
-use sgtk::Graph16;
+use sgtk::graph::{minors, Graph, Graph16};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
 fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
-    for minor in graph.minors().filter(|minor| minor.is_connected()) {
+    for minor in minors(&graph).filter(|minor| minor.is_connected()) {
         if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)
         }
@@ -15,7 +15,7 @@ fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
 fn main() {
     let mut known_obstructions = HashSet::new();
     for line in std::fs::read_to_string("torus-obstructions.txt").unwrap().lines() {
-        if let Some(obstruction) = sgtk::parse::from_upper_tri(line) {
+        if let Some(obstruction) = sgtk::parse::from_upper_tri::<Graph16>(line) {
             /*
             dbg!(line);
             if !obstruction.is_connected() {
@@ -36,7 +36,7 @@ fn main() {
     let mut new_obstructions = HashSet::new();
 
     for _ in 0..200 {
-        let graph = sgtk::random::graph16(15);
+        let graph: Graph16 = sgtk::random::graph(15);
         if !graph.is_connected() {
             continue
         }
@@ -56,8 +56,7 @@ fn main() {
 
     dbg!(&new_obstructions);
 
-    let new_obstructions = new_obstructions.into_iter()
-        .map(|g| (g, None)).collect::<Vec<_>>();
+    let new_obstructions: Vec<_> = new_obstructions.into_iter().collect();
 
     dbg!(new_obstructions.len());
 

@@ -1,9 +1,12 @@
 use rand::prelude::*;
-use crate::Graph16;
-use crate::seq::Seq16;
+use crate::graph::Graph;
+use crate::permutation::Permutation;
 
-pub fn graph16(n: usize) -> Graph16 {
-    let mut graph = Graph16::new(n);
+pub fn graph<G: Graph>(n: usize) -> G {
+    let mut graph = G::empty();
+    for i in 0..n {
+        graph.add_node(i);
+    }
 
     let edge_ratio = rand::thread_rng().gen_range(0.0..=1.0);
     let edge_count = ((n*(n+1) / 2) as f32 * edge_ratio) as usize;
@@ -17,15 +20,15 @@ pub fn graph16(n: usize) -> Graph16 {
     graph
 }
 
-pub fn permutation(n: usize) -> Seq16 {
-    let mut perm = [0; 16];
-    for i in 0..16 {
-        perm[i] = i as u8;
+pub fn permutation<P: Permutation>(n: usize) -> P {
+    let mut perm = vec![0; n];
+    for i in 0..n {
+        perm[i] = i;
     }
 
     let mut rng = thread_rng();
     perm[0..n].shuffle(&mut rng);
 
-    Seq16::from_slice(&perm as &[_])
+    P::from_iter(perm.into_iter().enumerate()).unwrap()
 }
 

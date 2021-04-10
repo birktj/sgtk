@@ -49,7 +49,7 @@ pub trait Bitset: Eq {
 
 macro_rules! bit_set {
     ($name:ident, $size:expr, $type:ty, $from_ty:ident, $to_ty:ident, $iter:ident, $iter_enum:ident) => (
-        #[derive(Copy, Clone, Default, Eq, PartialEq, Hash)]
+        #[derive(Copy, Clone, Default, Eq, PartialEq, Hash, Ord, PartialOrd)]
         pub struct $name {
             bitset: $type,
         }
@@ -94,7 +94,7 @@ macro_rules! bit_set {
             }
 
             fn set_val(&mut self, i: usize, v: bool) {
-                self.bitset |= if v { 0 } else { 1 << i };
+                self.bitset |= if v { 1 << i } else { 0 };
             }
 
             fn clear(&mut self, i: usize) {
@@ -265,6 +265,7 @@ bit_set!(Bitset32, 32, u32, from_u32, to_u32, Iter32, IterEnumerate32);
 bit_set!(Bitset64, 64, u64, from_u64, to_u64, Iter64, IterEnumerate64);
 bit_set!(Bitset128, 128, u128, from_u128, to_u128, Iter128, IterEnumerate128);
 
+/*
 impl Bitset16 {
     pub fn shuffle(&mut self, permutation: &Seq16) {
         let old = *self;
@@ -277,6 +278,7 @@ impl Bitset16 {
         }
     }
 }
+*/
 
 /*
 #[derive(Copy, Clone, Default, Eq, PartialEq, Hash)]

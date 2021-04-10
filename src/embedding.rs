@@ -1,6 +1,6 @@
 use crate::seq::{Seq, Seq16, SeqPermutations};
 use crate::bitset::{Bitset, Bitset16};
-use crate::Graph16;
+use crate::graph::{Graph, Graph16};
 
 #[derive(Clone)]
 pub struct RotationSystem16 {
@@ -63,9 +63,11 @@ impl RotationSystem16 {
     }
 
     pub fn to_graph(&self) -> Graph16 {
-        let mut graph = Graph16::new(0);
+        let mut graph = Graph16::empty();
         for u in self.nodes {
             graph.add_node(u);
+        }
+        for u in self.nodes {
             for v in self.edges[u] {
                 graph.add_edge(u, v);
             }
@@ -99,7 +101,7 @@ impl RotationSystem16 {
     pub fn faces<'a>(&'a self) -> impl 'a + Iterator<Item = Face16> {
         let mut used = [Bitset16::new(); 16];
         let mut visited = Bitset16::new();
-        
+
         std::iter::from_fn(move || {
             while let Some(u) = self.nodes.intersection(&visited.invert()).smallest() {
                 if let Some(v) = self.edges[u]
@@ -317,7 +319,7 @@ mod tests {
 
     #[test]
     fn count_toroidal_embeddings_k5() {
-        let k5 = Graph16::regular(5);
+        let k5 = Graph16::complete(5);
 
         let count = RotationSystem16::enumerate(&k5)
             .filter(|embedding| embedding.genus() == 1)
@@ -329,7 +331,10 @@ mod tests {
 
     #[test]
     fn count_toroidal_embeddings_k33() {
-        let mut k33 = Graph16::new(6);
+        let mut k33 = Graph16::empty();
+        for i in 0..6 {
+            k33.add_node(i);
+        }
         for i in 0..3 {
             for j in 3..6 {
                 k33.add_edge(i, j);

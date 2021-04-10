@@ -1,4 +1,4 @@
-use crate::Graph16;
+use crate::graph::{Graph, Graph16};
 use crate::map::Map64;
 use crate::seq::{Seq, Seq16};
 use crate::planar;
@@ -6,7 +6,7 @@ use crate::embedding::*;
 use crate::bitset::{Bitset, Bitset64};
 
 pub fn find_kuratowski(mut graph: Graph16) -> Graph16 {
-    for (u, v) in graph.edges() {
+    for (u, v) in graph.clone().edges() {
         graph.del_edge(u, v);
         if !graph.is_connected() {
             for component in graph.components() {
@@ -28,14 +28,14 @@ pub fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iter
         !h.has_edge(*u, *v)
     })
     .map(|(u, v)| {
-        let mut g = Graph16::new(0);
+        let mut g = Graph16::empty();
         g.add_node(u);
         g.add_node(v);
         g.add_edge(u, v);
         g
-    }).chain(graph.subgraph(h.nodes().invert()).components()
+    }).chain(graph.subgraph(&h.nodes().invert()).components()
         .map(move |mut c| {
-            c.union(&graph.neighbouring(c.nodes()).bipartite_split(c.nodes(), h.nodes()));
+            c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h.nodes()));
             c
         }))
 }
@@ -54,12 +54,12 @@ pub fn find_embedding(graph: &Graph16) -> Option<RotationSystem16> {
 
     let h = find_kuratowski(*graph);
 
-    for mut bridge in graph.subgraph(h.nodes().invert()).components() {
-        let attachments = graph.neighbouring(h.nodes())
+    for mut bridge in graph.subgraph(&h.nodes().invert()).components() {
+        let attachments = graph.neighbouring(&h.nodes())
             .nodes().intersection(&bridge.nodes());
         let u = bridge.nodes().invert().smallest().unwrap();
         bridge.add_node(u);
-        bridge.add_edges(u, attachments);
+        bridge.add_edges(u, &attachments);
         if planar::fastdmp(&bridge).is_none() {
             return None
         }
@@ -247,7 +247,7 @@ impl TorusSearcher16 {
                 }
             } else {
                 let (face, old_admissible_bridges) = self.remove_face(face_i);
-                let path = bridge.path(start, attachments).unwrap();
+                let path = bridge.path(start, &attachments).unwrap();
                 //dbg!(path);
                 let end = path.last().unwrap();
                 let mut start_endpoints = Seq16::new();
@@ -341,13 +341,14 @@ impl TorusSearcher16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::minors;
 
     #[test]
     fn check_known_minor() {
         let graph = crate::parse::from_upper_tri("9 000001110000111000111111111111111000")
             .unwrap();
         assert!(find_embedding(&graph).is_none());
-        for minor in graph.minors() {
+        for minor in minors(&graph) {
             assert!(find_embedding(&minor).is_some());
         }
     }

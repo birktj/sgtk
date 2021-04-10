@@ -1,15 +1,40 @@
 use std::collections::HashSet;
 use sgtk::*;
+use sgtk::graph::{minors, Graph, Graph16, Coloring, Coloring16};
 
 fn main() {
-    let mut k33 = Graph16::new(6);
+    let mut k33 = Graph16::empty();
+    for i in 0..6 {
+        k33.add_node(i);
+    }
     for i in 0..3 {
         for j in 3..6 {
             k33.add_edge(i, j);
         }
     }
+    
+    //dbg!(k33.nodes());
+    //dbg!(&k33);
+    let canon = k33.clone().to_canonical();
+    dbg!(&canon);
 
-    enumeration::Enumerator16::new(4).enumerate();
+    let graph = sgtk::parse::from_upper_tri("9 000001110000111000111111111111111000")
+        .unwrap();
+    dbg!(sgtk::toroidal::find_kuratowski(graph));
+    dbg!(sgtk::toroidal::find_embedding(&graph));
+
+    for minor in minors(&graph) {
+        dbg!(minor);
+        let k = sgtk::toroidal::find_kuratowski(minor);
+        dbg!(&k);
+        dbg!(sgtk::embedding::RotationSystem16::enumerate(&k).count());
+        dbg!(sgtk::embedding::RotationSystem16::enumerate(&k)
+            .filter(|embedding| embedding.genus() == 1)
+            .count());
+        dbg!(sgtk::toroidal::find_embedding(&minor));
+    }
+
+    viz::render_dot("test.pdf", &[k33, canon]);
 
     return;
 
@@ -27,7 +52,7 @@ fn main() {
     }
     */
 
-    dbg!(parse::from_graph6("CF"));
+    dbg!(parse::from_graph6::<Graph16>("CF"));
 
     /*
     let mut graph = random::graph16(8); //Graph16::regular(8);
@@ -51,7 +76,7 @@ fn main() {
     */
     //let graph = parse::from_upper_tri("9 111000011100001100001000011111111111").unwrap();
         //Graph16::regular(8);
-    let graph = parse::from_graph6("H_?xqKw");
+    let graph = parse::from_graph6::<Graph16>("H_?xqKw");
 
     dbg!(graph);
 
@@ -59,9 +84,9 @@ fn main() {
 
     //dbg!(embedding::RotationSystem16::enumerate(&graph).count());
     let mut graphs = Vec::new();
-    graphs.push((graph, None));
-    for minor in graph.minors().filter(|minor| minor.is_connected()) {
-        graphs.push((minor, None));
+    graphs.push(graph);
+    for minor in minors(&graph).filter(|minor| minor.is_connected()) {
+        graphs.push(minor);
     }
 
     viz::render_dot("test.pdf", &graphs);
@@ -78,7 +103,7 @@ fn main() {
     assert!(graph2.is_connected());
     dbg!(toroidal::find_embedding(&graph2));
 
-    for minor in graph.minors().filter(|minor| minor.is_connected()) {
+    for minor in minors(&graph).filter(|minor| minor.is_connected()) {
         dbg!(parse::to_graph6(&minor));
         //dbg!(minor);
         let embedding = toroidal::find_embedding(&minor);
@@ -86,12 +111,14 @@ fn main() {
         if embedding.is_none() {
             let k = toroidal::find_kuratowski(minor);
             let mut graphs = Vec::new();
-            graphs.push((graph, None));
-            graphs.push((minor, None));
-            graphs.push((k, None));
-            graphs.push((minor.difference(&k), None));
+            graphs.push(graph);
+            graphs.push(minor);
+            graphs.push(k);
+            let mut minor_dif = minor.clone();
+            minor.difference(&k);
+            graphs.push(minor_dif);
             for bridge in toroidal::compute_bridges(&minor, &k) {
-                graphs.push((bridge, None));
+                graphs.push(bridge);
             }
             viz::render_dot("test.pdf", &graphs);
         }

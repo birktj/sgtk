@@ -1,8 +1,8 @@
-use sgtk::Graph16;
+use sgtk::graph::{minors, Graph, Graph16};
 use std::collections::HashSet;
 
 fn find_planar_obstruction(graph: Graph16) -> Graph16 {
-    for minor in graph.minors() {
+    for minor in minors(&graph) {
         if minor.is_connected() && sgtk::planar::fastdmp(&minor).is_none() {
             return find_planar_obstruction(minor)
         }
@@ -15,7 +15,7 @@ fn main() {
     let mut obstructions = HashSet::new();
 
     for _ in 0..100 {
-        let graph = sgtk::random::graph16(14);
+        let graph: Graph16 = sgtk::random::graph(14);
         if !graph.is_connected() {
             continue
         }
@@ -25,8 +25,7 @@ fn main() {
         }
     }
 
-    let obstructions = obstructions.into_iter()
-        .map(|g| (g, None)).collect::<Vec<_>>();
+    let obstructions: Vec<_> = obstructions.into_iter().collect();
 
     sgtk::viz::render_dot("test.pdf", &obstructions);
 

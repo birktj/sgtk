@@ -1,12 +1,14 @@
 use std::collections::HashSet;
-use crate::graph::{Graph16, Coloring16};
-use crate::seq::Seq16;
+use std::hash::Hash;
+use crate::graph::{Graph, Coloring, Graph16, Coloring16};
+use crate::permutation::{Permutation, Perm16};
+use crate::seq::{Seq, Seq16};
 use crate::bitset::{Bitset, Bitset16};
 
-pub fn refine(graph: &Graph16, mut coloring: Coloring16, seq: Seq16) -> Coloring16 {
+pub fn refine<G: Graph>(graph: &G, mut coloring: G::Coloring, seq: G::Path) -> G::Coloring {
     let mut cell_set = Bitset16::new();
     for x in seq.iter() {
-        cell_set.set(*x as usize);
+        cell_set.set(x);
     }
 
     while let Some(w) = cell_set.smallest() {
@@ -15,13 +17,13 @@ pub fn refine(graph: &Graph16, mut coloring: Coloring16, seq: Seq16) -> Coloring
         }
         cell_set.clear(w);
 
-        let w_cell = coloring.get_cell(w as u8);
+        let w_cell = coloring.get_cell(w);
 
-        for x in coloring.cells() {
+        for x in coloring.cells().iter() {
             let mut frags = [Bitset16::new(); 17];
-            let x_cell = coloring.get_cell(x as u8);
+            let x_cell = coloring.get_cell(x);
 
-            for u in x_cell.into_iter() {
+            for u in x_cell.iter() {
                 let w_edges = graph.siblings(u).intersection(&w_cell).count();
                 frags[w_edges].set(u);
             }
@@ -47,56 +49,51 @@ pub fn refine(graph: &Graph16, mut coloring: Coloring16, seq: Seq16) -> Coloring
     coloring
 }
 
-pub fn individualize(mut coloring: Coloring16, u: usize) -> Coloring16 {
-    let cu = coloring.get(u);
-    for v in 0..16 {
-        if coloring.defined(v) {
-            let cv = coloring.get(v);
-            if u != v && cv >= cu {
-                coloring.set(v, cv+1);
-            }
-        }
-    }
-    coloring
-}
-
-pub struct SearchResults {
-    pub automorphisms: HashSet<Seq16>,
-    pub canonical_relabeling: Seq16,
-    pub canonical_graph: Graph16,
+pub struct SearchResults<G: Graph> {
+    pub automorphisms: HashSet<G::Perm>,
+    pub canonical_relabeling: G::Perm,
+    pub canonical_graph: G,
     pub orbits: Seq16,
 }
 
-pub fn search_tree(graph: Graph16) -> SearchResults {
-    let mut coloring = Coloring16::new();
+pub fn search_tree<G: Graph + Ord>(graph: G) -> SearchResults<G>
+    where G::Perm: Eq + Hash,
+          G::Path: Eq + Hash
+{
+    let mut coloring = G::Coloring::new();
 
-    for u in graph.nodes() {
+    for u in graph.nodes().iter() {
         coloring.set(u, 0);
     }
 
     let mut tree = SearchTree::new(graph);
     tree.start_search(coloring);
 
+    let canonical = tree.largest_invariant.unwrap();
+
     SearchResults {
         automorphisms: tree.automorphisms,
-        canonical_relabeling: tree.largest_invariant.unwrap().0,
-        canonical_graph: tree.largest_invariant.unwrap().1.end_graph.unwrap(),
+        canonical_relabeling: canonical.0,
+        canonical_graph: canonical.1.end_graph.unwrap(),
         orbits: tree.orbits,
     }
 }
 
-pub struct SearchTree {
-    graph: Graph16,
-    automorphisms: HashSet<Seq16>,
-    autonodes: HashSet<Seq16>,
-    largest_invariant: Option<(Seq16, NodeInvariant)>,
-    first_node: Option<(Seq16, NodeInvariant)>,
+pub struct SearchTree<G: Graph> {
+    graph: G,
+    automorphisms: HashSet<G::Perm>,
+    autonodes: HashSet<G::Path>,
+    largest_invariant: Option<(G::Perm, NodeInvariant<G>)>,
+    first_node: Option<(G::Perm, NodeInvariant<G>)>,
     orbits: Seq16,
     pub auto_prune: bool,
 }
 
-impl SearchTree {
-    pub fn new(graph: Graph16) -> SearchTree {
+impl<G: Graph + Ord> SearchTree<G>
+    where G::Perm: Eq + Hash,
+          G::Path: Eq + Hash
+{
+    pub fn new(graph: G) -> SearchTree<G> {
         let mut orbits = Seq16::new();
         for i in 0..16 {
             orbits.push(i);
@@ -112,45 +109,38 @@ impl SearchTree {
         }
     }
 
-    #[inline(never)]
-    fn search(&mut self, coloring: Coloring16, mut invariant: NodeInvariant, seq: Seq16) {
+    fn search(&mut self, coloring: G::Coloring, mut invariant: NodeInvariant<G>, seq: G::Path) {
         if let Some(perm) = coloring.permutation() {
             invariant.add_node(&coloring);
-            invariant.add_leaf(self.graph, &perm);
+            invariant.add_leaf(self.graph.clone(), &perm);
 
 
             if let Some((ref first_perm, ref first_invariant)) = &self.first_node {
                 if first_invariant == &invariant {
-                    let mut res = Seq16::from_slice(&[0u8; 16] as &[_]);
-                    let mut first_inv = Seq16::from_slice(&[0u8; 16] as &[_]);
-
-                    for (i, j) in first_perm.iter().enumerate() {
-                        first_inv[*j as usize] = i as u8;
-                    }
-                    for i in 0..16 {
-                        res[i] = first_inv[perm[i] as usize];
-                    }
+                    let res = perm.chain(&first_perm.invert());
+                    //let res = first_perm.invert().chain(&perm);
 
                     // Check that we have an automorphism
-                    //debug_assert!(self.graph == self.graph.shuffle2(&res));
+                    debug_assert!(self.graph == {
+                        let mut graph = self.graph.clone();
+                        graph.shuffle(&res);
+                        graph
+                    });
                     self.automorphisms.insert(res);
                 }
             }
 
             if let Some((ref first_perm, ref first_invariant)) = &self.largest_invariant {
                 if first_invariant == &invariant {
-                    let mut res = Seq16::from_slice(&[0u8; 16] as &[_]);
-                    let mut first_inv = Seq16::from_slice(&[0u8; 16] as &[_]);
-
-                    for (i, j) in first_perm.iter().enumerate() {
-                        first_inv[*j as usize] = i as u8;
-                    }
-                    for i in 0..16 {
-                        res[i] = first_inv[perm[i] as usize];
-                    }
+                    let res = perm.chain(&first_perm.invert());
+                    //let res = first_perm.invert().chain(&perm);
 
                     // Check that we have an automorphism
-                    //debug_assert!(self.graph == self.graph.shuffle2(&res));
+                    debug_assert!(self.graph == {
+                        let mut graph = self.graph.clone();
+                        graph.shuffle(&res);
+                        graph
+                    });
                     self.automorphisms.insert(res);
                 }
             }
@@ -161,7 +151,7 @@ impl SearchTree {
                 .unwrap_or(true);
 
             if inv_greater {
-                self.largest_invariant = Some((perm, invariant));
+                self.largest_invariant = Some((perm.clone(), invariant.clone()));
             }
             if self.first_node.is_none() {
                 self.first_node = Some((perm, invariant));
@@ -170,14 +160,13 @@ impl SearchTree {
             invariant.add_node(&coloring);
 
             // TODO: faster without invariant, find a better one
-            
-            let cell = coloring.cells().into_iter()
-                .map(|col| coloring.get_cell(col as u8))
+            let cell = coloring.cells().iter()
+                .map(|col| coloring.get_cell(col))
                 .filter(|cell| cell.count() > 1)
                 .next().unwrap();
 
-            for u in cell {
-                let mut seq = seq;
+            for u in cell.iter() {
+                let mut seq = seq.clone();
                 seq.push(u);
 
                 if self.auto_prune && self.autonodes.contains(&seq) {
@@ -186,10 +175,9 @@ impl SearchTree {
                     let mut pruned = false;
                     let mut autonodes = Vec::new();
                     for perm in &self.automorphisms {
-                        let mut autonode = Seq16::new();
+                        let mut autonode = G::Path::new();
                         for i in seq.iter() {
-                            autonode.push(perm[*i as usize] as usize);
-                            self.orbits[*i as usize] = std::cmp::min(self.orbits[*i as usize], perm[*i as usize]);
+                            autonode.push(perm.get(i));
                         }
                         if self.autonodes.contains(&autonode) {
                             pruned = true;
@@ -205,30 +193,32 @@ impl SearchTree {
                         self.autonodes.insert(autonode);
                     }
                 }
+                let mut refined = coloring.clone();
+                refined.individualize(u);
 
-                let refined = individualize(coloring, u);
-                let mut cells = Seq16::new();
+                let mut cells = G::Path::new();
                 cells.push(coloring.get(u) as usize);
                 let refined = refine(&self.graph, refined, cells);
-                self.search(refined, invariant, seq);
+                self.search(refined, invariant.clone(), seq);
             }
         }
     }
 
-    fn start_search(&mut self, coloring: Coloring16) {
-        let mut cells = Seq16::new();
-        for cell in coloring.cells() {
+    fn start_search(&mut self, coloring: G::Coloring) {
+        let mut cells = G::Path::new();
+        for cell in coloring.cells().iter() {
             cells.push(cell);
         }
 
         let refined = refine(&self.graph, coloring, cells);
-        self.search(refined, NodeInvariant::new(), Seq16::new());
+        self.search(refined, NodeInvariant::new(), G::Path::new());
     }
 
-    pub fn find_canonical(&mut self) -> Graph16 {
-        let mut coloring = Coloring16::new();
+    /*
+    pub fn find_canonical(&mut self) -> G {
+        let mut coloring = G::Coloring::new();
 
-        for u in self.graph.nodes() {
+        for u in self.graph.nodes().iter() {
             coloring.set(u, 0);
         }
 
@@ -236,25 +226,25 @@ impl SearchTree {
 
         self.largest_invariant.unwrap().1.end_graph.unwrap()
     }
+    */
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-struct NodeInvariant {
-    seq: Seq16,
-    end_graph: Option<Graph16>,
+struct NodeInvariant<G: Graph> {
+    seq: G::Path,
+    end_graph: Option<G>,
 }
 
-impl NodeInvariant {
-    fn new() -> NodeInvariant {
-        NodeInvariant {
-            seq: Seq16::new(),
+impl<G: Graph + Ord> NodeInvariant<G> {
+    fn new() -> Self {
+        Self {
+            seq: G::Path::new(),
             end_graph: None,
         }
     }
 
-    fn cmp_prefix(&self, other: &NodeInvariant) -> std::cmp::Ordering {
-        let len = std::cmp::min(self.seq.len(), other.seq.len());
-        let seq_cmp = (&self.seq.slice()[0..len]).cmp(&other.seq.slice()[0..len]);
+    fn cmp_prefix(&self, other: &Self) -> std::cmp::Ordering {
+        let seq_cmp = self.seq.iter().cmp(other.seq.iter());
 
         match (&self.end_graph, &other.end_graph) {
             (Some(ref ga), Some(ref gb)) => seq_cmp.then(ga.cmp(gb)),
@@ -262,7 +252,7 @@ impl NodeInvariant {
         }
     }
 
-    fn add_node(&mut self, _coloring: &Coloring16) -> u8 {
+    fn add_node(&mut self, _coloring: &G::Coloring) -> u8 {
         // FIXME: using node invariants makes code slower, not faster
         /*
         use std::hash::{Hash, Hasher};
@@ -288,8 +278,8 @@ impl NodeInvariant {
         0
     }
 
-    fn add_leaf(&mut self, mut graph: Graph16, permutation: &Seq16) {
-        graph.shuffle2(permutation);
+    fn add_leaf(&mut self, mut graph: G, permutation: &G::Perm) {
+        graph.shuffle(permutation);
         self.end_graph = Some(graph)
     }
 }

@@ -5,7 +5,6 @@ pub mod slotmap;
 pub mod bitset;
 pub mod permutation;
 pub mod graph;
-//pub mod graph2;
 pub mod viz;
 pub mod parse;
 pub mod iso;
@@ -16,4 +15,4 @@ pub mod planar;
 pub mod planar_old;
 pub mod toroidal;
 
-pub use graph::Graph16;
+//pub use graph::Graph16;

@@ -1,7 +1,7 @@
-use crate::Graph16;
+use crate::graph::Graph;
 use crate::bitset::Bitset;
 
-pub fn from_graph6(mut s: &str) -> Graph16 {
+pub fn from_graph6<G: Graph>(mut s: &str) -> G {
     let n = if s.starts_with("~~") {
         let r = s[2..8].as_bytes().iter().map(|b| b - b'?')
             .fold(0, |acc, x| {
@@ -24,7 +24,10 @@ pub fn from_graph6(mut s: &str) -> Graph16 {
         r
     };
 
-    let mut graph = Graph16::new(n);
+    let mut graph = G::empty();
+    for i in 0..n {
+        graph.add_node(i);
+    }
 
     let mut bits = s.as_bytes().iter().map(|b| b - b'?')
         .flat_map(|b| std::array::IntoIter::new([(b >> 5) & 1, (b >> 4) & 1, (b >> 3) & 1, (b >> 2) & 1, (b >> 1) & 1, b & 1]));
@@ -40,13 +43,13 @@ pub fn from_graph6(mut s: &str) -> Graph16 {
     graph
 }
 
-pub fn to_graph6(graph: &Graph16) -> String {
+pub fn to_graph6<G: Graph>(graph: &G) -> String {
     let mut res = String::new();
     res.push((graph.nodes().count() as u8 + b'?') as char);
     let mut bits = 0;
     let mut j = 0;
-    for (i, u) in graph.nodes().into_iter().enumerate().skip(1) {
-        for v in graph.nodes().into_iter().take(i) {
+    for (i, u) in graph.nodes().iter().enumerate().skip(1) {
+        for v in graph.nodes().iter().take(i) {
             bits = bits << 1;
             if graph.has_edge(u, v) {
                 bits |= 1;
@@ -65,7 +68,7 @@ pub fn to_graph6(graph: &Graph16) -> String {
     res
 }
 
-pub fn from_upper_tri(mut s: &str) -> Option<Graph16> {
+pub fn from_upper_tri<G: Graph>(mut s: &str) -> Option<G> {
     s = s.trim();
     let sn = s.split(' ').next().unwrap();
     let n = sn.parse::<usize>().unwrap();
@@ -74,7 +77,10 @@ pub fn from_upper_tri(mut s: &str) -> Option<Graph16> {
     }
     s = s.strip_prefix(sn).unwrap();
 
-    let mut graph = Graph16::new(n);
+    let mut graph = G::empty();
+    for i in 0..n {
+        graph.add_node(i);
+    }
 
     let mut edges = s.chars().filter(|c| *c == '1' || *c == '0');
 

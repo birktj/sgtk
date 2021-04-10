@@ -2,7 +2,6 @@
 extern crate criterion;
 
 use criterion::{black_box, Criterion};
-use sgtk::Graph16;
 
 pub fn benchmark(c: &mut Criterion) {
     let graph = sgtk::parse::from_graph6("F@|ZO");

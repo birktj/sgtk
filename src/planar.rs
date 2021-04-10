@@ -1,4 +1,4 @@
-use crate::Graph16;
+use crate::graph::{Graph, Graph16};
 use crate::map::Map64;
 use crate::embedding::*;
 use crate::bitset::{Bitset, Bitset64};
@@ -10,20 +10,14 @@ fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator
     })
     //graph.difference(h).subgraph(h.nodes()).edges()
     .map(|(u, v)| {
-        let mut g = Graph16::new(0);
+        let mut g = Graph16::empty();
         g.add_node(u);
         g.add_node(v);
         g.add_edge(u, v);
         g
-    }).chain(graph.subgraph(h.nodes().invert()).components()
+    }).chain(graph.subgraph(&h.nodes().invert()).components()
         .map(move |mut c| {
-            /*
-            for (u, v) in graph.edges_from_to(c.nodes(), h.nodes()) {
-                c = c.add_node(v).add_edge(u, v);
-            }
-            c
-            */
-            c.union(&graph.neighbouring(c.nodes()).bipartite_split(c.nodes(), h.nodes()));
+            c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h.nodes()));
             c
         }))
 }
@@ -205,7 +199,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             let start = attachments.smallest().unwrap();
             attachments.clear(start);
 
-            let path = bridge.path(start, attachments).unwrap();
+            let path = bridge.path(start, &attachments).unwrap();
             //dbg!(path);
 
             let face_i = old_admissible_faces.smallest().unwrap();
@@ -296,22 +290,23 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::minors;
 
     #[test]
     fn k4_planar() {
-        let graph = Graph16::regular(4);
+        let graph = Graph16::complete(4);
         assert!(fastdmp(&graph).is_some());
     }
 
     #[test]
     fn k5_not_planar() {
-        let graph = Graph16::regular(5);
+        let graph = Graph16::complete(5);
         assert!(fastdmp(&graph).is_none());
     }
 
     #[test]
     fn k5_minors_planar() {
-        for graph in Graph16::regular(5).minors() {
+        for graph in minors(&Graph16::complete(5)) {
             assert!(fastdmp(&graph).is_some());
         }
     }

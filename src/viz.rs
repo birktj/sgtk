@@ -1,14 +1,15 @@
 use std::process::{Command, Stdio};
-use crate::Graph16;
-use crate::graph::Coloring16;
-
+use crate::graph::Graph;
+use crate::bitset::Bitset;
 
 pub struct GraphvizOptions {
     shape: String,
     colorscheme: String,
 }
 
-pub fn graph2dot(graphs: &[(Graph16, Option<Coloring16>)]) -> String {
+//pub fn graph2dot<G: Graph>(graphs: &[(G, Option<Coloring16>)]) -> String {
+
+pub fn graph2dot<G: Graph>(graphs: &[G]) -> String {
     use std::fmt::Write;
     let mut dot = String::new();
 
@@ -21,19 +22,21 @@ pub fn graph2dot(graphs: &[(Graph16, Option<Coloring16>)]) -> String {
     write!(dot, "graph {{\n").unwrap();
     write!(dot, "    node[shape = {} width=0.2 style=filled colorscheme={}]\n", 
         opts.shape, opts.colorscheme).unwrap();
-    for (gi, (graph, coloring)) in graphs.iter().enumerate() {
+    for (gi, graph) in graphs.iter().enumerate() {
         write!(dot, "subgraph cluster{} {{\n", gi).unwrap();
         write!(dot, "    label=\"{}\";\n", gi).unwrap();
-        for u in graph.nodes() {
+        for u in graph.nodes().iter() {
+            /*
             if let Some(c) = coloring.as_ref()
                 .map(|coloring| coloring.get(u))
             {
                 write!(dot, "    g{}n{}[label=\"{}\", fillcolor={}];\n", gi, u, u, c+1)
                     .unwrap();
             } else {
+            */
                 write!(dot, "    g{}n{}[label=\"{}\"];\n", gi, u, u)
                     .unwrap();
-            }
+            //}
             //write!(dot, "    {};\n", u);
         }
         for (u, v) in graph.edges() {
@@ -46,7 +49,8 @@ pub fn graph2dot(graphs: &[(Graph16, Option<Coloring16>)]) -> String {
     dot
 }
 
-pub fn render_dot(file: &str, graphs: &[(Graph16, Option<Coloring16>)]) {
+//pub fn render_dot(file: &str, graphs: &[(Graph16, Option<Coloring16>)]) {
+pub fn render_dot<G: Graph>(file: &str, graphs: &[G]) {
     use std::io::Write;
     let dot = graph2dot(graphs);
 

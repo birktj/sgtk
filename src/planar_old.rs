@@ -1,6 +1,6 @@
 use crate::seq::{Seq, Seq16, SeqPermutations};
 use crate::bitset::{Bitset, Bitset16};
-use crate::Graph16;
+use crate::graph::{Graph, Graph16};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct RotationSystem16 {
@@ -82,7 +82,10 @@ impl RotationSystem16 {
     }
 
     fn to_graph(&self) -> Graph16 {
-        let mut graph = Graph16::new(self.n);
+        let mut graph = Graph16::empty();
+        for u in 0..self.n {
+            graph.add_node(u);
+        }
         for u in 0..self.n {
             for v in self.edges[u].iter() {
                 graph.add_edge(u, v);
@@ -319,12 +322,12 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
         let bridges = graph.edges().filter(|(u, v)| {
             h.has_node(*u) && h.has_node(*v) && !h.has_edge(*u, *v)
         }).map(|(u, v)| {
-            let mut g = Graph16::new(0);
+            let mut g = Graph16::empty();
             g.add_node(u);
             g.add_node(v);
             g.add_edge(u, v);
             g
-        }).chain(graph.subgraph(h.nodes().invert()).components()
+        }).chain(graph.subgraph(&h.nodes().invert()).components()
             .map(|c| {
                 let mut newc = c;
                 for (u, v) in graph.edges() {
@@ -393,7 +396,7 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
             let start = attachments.smallest().unwrap();
             attachments.clear(start);
 
-            let mut path = bridge.path(start, attachments).unwrap();
+            let mut path = bridge.path(start, &attachments).unwrap();
             //dbg!(path);
             let start_snd = usize::from(path[1]);
             let end = path.pop().unwrap();

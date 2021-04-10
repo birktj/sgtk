@@ -1,14 +1,12 @@
 use std::collections::HashSet;
-use crate::Graph16;
-use crate::seq::Seq16;
+use crate::graph::{Graph, Graph16};
+use crate::permutation::{Permutation, Perm16};
+use crate::seq::{Seq, Seq16};
 use crate::bitset::{Bitset, Bitset16};
 use crate::iso::search_tree;
 
-fn check_auto<'a>(n: usize, cut_vert: usize, auto_gens: &'a HashSet<Seq16>) -> impl 'a + Iterator<Item = Seq16> {
-    let mut perm = Seq16::new();
-    for i in 0..n + 1 {
-        perm.push(i);
-    }
+fn check_auto<'a>(n: usize, cut_vert: usize, auto_gens: &'a HashSet<Perm16>) -> impl 'a + Iterator<Item = Perm16> {
+    let mut perm = Perm16::new();
 
     let mut seen_perms = HashSet::new();
     let mut perms = Vec::new();
@@ -17,14 +15,11 @@ fn check_auto<'a>(n: usize, cut_vert: usize, auto_gens: &'a HashSet<Seq16>) -> i
     std::iter::from_fn(move || {
         loop {
             while let Some(gen) = gen_iter.next() {
-                let mut new_perm = Seq16::new();
-                for (j, i) in perm.iter().enumerate() {
-                    new_perm.push(gen[*i as usize] as usize);
-                }
+                let mut new_perm = perm.chain(gen);
                 if !seen_perms.contains(&new_perm) {
                     seen_perms.insert(new_perm);
                     perms.push(new_perm);
-                    if usize::from(new_perm[cut_vert]) == n {
+                    if new_perm.get(cut_vert) == n {
                         return Some(new_perm)
                     }
                 }
@@ -34,6 +29,53 @@ fn check_auto<'a>(n: usize, cut_vert: usize, auto_gens: &'a HashSet<Seq16>) -> i
             gen_iter = auto_gens.into_iter();
         }
     })
+}
+
+fn compute_orbits(n: usize, auto_gens: &HashSet<Perm16>) -> Seq16 {
+    let mut orbits = Seq16::new();
+    for i in 0..n {
+        orbits.push(i);
+    }
+
+    for perm in auto_gens {
+        for i in 0..n {
+            if perm.get(i) != i {
+                let mut j1 = usize::from(orbits[i]);
+                while usize::from(orbits[j1]) != j1 {
+                    j1 = usize::from(orbits[j1]);
+                }
+
+                let mut j2 = usize::from(orbits[perm.get(i)]);
+                while usize::from(orbits[j2]) != j2 {
+                    j2 = usize::from(orbits[j2]);
+                }
+
+                if j1 < j2 {
+                    orbits[j2] = j1 as u8;
+                } else {
+                    orbits[j1] = j2 as u8;
+                }
+            }
+        }
+
+        for i in 0..n {
+            orbits[i] = orbits[usize::from(orbits[i])];
+        }
+    }
+
+    orbits
+}
+
+fn extension_cardinality_bounds(n: usize, ne: usize, dmax: usize) -> (usize, usize) {
+    let lower_bound = if n == 1 {
+        0
+    } else {
+        std::cmp::max(dmax, (2*ne + n - 2) / (n - 1))
+    };
+
+    let upper_bound = n;
+
+    (lower_bound, upper_bound)
 }
 
 #[derive(Debug)]
@@ -79,10 +121,23 @@ impl<F> Enumerator16<F> {
 }
 
 impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
-    fn enumerate_inner(&mut self, auto_gens: HashSet<Seq16>, graph: Graph16, n: usize) {
+    fn enumerate_inner(&mut self, auto_gens: HashSet<Perm16>, graph: Graph16, n: usize, ne: usize) {
         if n >= self.maxn {
             return
         }
+
+        let dmax = graph.siblings(n-1).count();
+
+        let (xlb, xub) = extension_cardinality_bounds(n, ne, dmax);
+
+        let mut d = Bitset16::new();
+        for i in 0..n {
+            if graph.siblings(i).count() == dmax {
+                d.set(i);
+            }
+        }
+
+        //dbg!(xlb, xub);
 
         //dbg!(&auto_gens);
 
@@ -120,11 +175,19 @@ impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
         for edges in Bitset16::enumerate(n) {
             self.counts.num_test += 1;
             if children[edges.to_u16() as usize] != -1 {
-                continue
+                //continue
+            }
+            let xc = edges.count();
+            //dbg!(xlb, xub, xc);
+            if xc < xlb {
+                //continue
+            }
+            if xc > xub {
+                //continue
             }
             let mut new_graph = graph;
             new_graph.add_node(n);
-            new_graph.add_edges(n, edges); //.to_canonical();
+            new_graph.add_edges(n, &edges); //.to_canonical();
 
             self.counts.search_tree += 1;
             let search_res = search_tree(new_graph);
@@ -132,29 +195,29 @@ impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
             //dbg!(&search_res.orbits);
             
             /*
-            let orbits = compute_orbits(n, n, &search_res.automorphisms);
-            dbg!(orbits);
+            let orbits = compute_orbits(n+1, &search_res.automorphisms);
 
-            if orbits[search_res.canonical_relabeling[n] as usize] != orbits[n] {
-                continue
+            //dbg!(&search_res.automorphisms, orbits);
+
+            if orbits[search_res.canonical_relabeling.get(n)] != orbits[n] {
+                //continue
             }
-            */
             //dbg!(search_res.orbits);
+            */
 
             //if orbits[usize::from(search_res.canonical_relabeling[n])] != orbits[n] {
             //if search_res.orbits[usize::from(search_res.canonical_relabeling[n])] != search_res.orbits[n] {
-            if usize::from(search_res.canonical_relabeling[n]) != n {
+            if search_res.canonical_relabeling.get(n) != n {
             //if false {
                 let cut_vertex = search_res.canonical_relabeling.iter()
-                    .enumerate()
-                    .filter(|(_, i)| usize::from(**i) == n)
+                    .filter(|(_, i)| *i == n)
                     .next().unwrap().0;
                     //usize::from(search_res.canonical_relabeling[n]);
 
                 let mut nodes = new_graph.nodes();
                 nodes.clear(cut_vertex);
 
-                let mut m_z = new_graph.subgraph(nodes);
+                let mut m_z = new_graph.subgraph(&nodes);
 
                 //dbg!(n, cut_vertex, search_res.canonical_relabeling, nodes, m_z, graph);
 
@@ -163,8 +226,7 @@ impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
                 self.counts.compute_orbit += 1;
                 for perm in check_auto(n, cut_vertex, &search_res.automorphisms) {
                     let mut m_z = m_z;
-                    m_z.shuffle2(&perm);
-                    //dbg!(n, cut_vertex, perm, m_z);
+                    m_z.shuffle(&perm);
                     if m_z == graph {
                         found_perm = true;
                         break
@@ -177,7 +239,7 @@ impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
             }
 
             if curr_graphs.contains(&search_res.canonical_graph) {
-                //continue
+                continue
             }
             curr_graphs.insert(search_res.canonical_graph);
 
@@ -190,13 +252,14 @@ impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
             if n + 1 == self.maxn {
                 self.graphs.insert(new_graph);
             } else {
-                self.enumerate_inner(search_res.automorphisms, new_graph, n+1);
+                self.enumerate_inner(search_res.automorphisms, new_graph, n+1, ne + xc);
             }
         }
     }
 
     pub fn enumerate(&mut self) {
-        let graph = Graph16::new(1);
-        self.enumerate_inner(HashSet::new(), graph, 1);
+        let mut graph = Graph16::empty();
+        graph.add_node(0);
+        self.enumerate_inner(HashSet::new(), graph, 1, 0);
     }
 }
