@@ -2,6 +2,7 @@ use std::hash::Hash;
 use crate::bitset::{self, Bitset};
 use crate::seq::{self, Seq};
 use crate::permutation::{Permutation, SmallPerm};
+use crate::embedding::{RotationSystem, SmallRotationSystem};
 
 pub type Graph16 = BitsetGraph<bitset::Bitset16, 16>;
 pub type Graph32 = BitsetGraph<bitset::Bitset32, 32>;
@@ -44,6 +45,7 @@ pub trait Graph: Sized + Clone {
     type Set: Bitset<Perm = Self::Perm>;
     type Path: Seq;
     type Coloring: Coloring<Set = Self::Set, Perm = Self::Perm>;
+    type Embedding: RotationSystem<Self>;
 
     fn empty() -> Self;
 
@@ -370,6 +372,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
     type Set = B;
     type Path = seq::SmallSeq<N>;
     type Coloring = SmallColoring<B, N>;
+    type Embedding = SmallRotationSystem<B, N>;
 
     fn empty() -> Self {
         Self {

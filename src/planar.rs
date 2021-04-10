@@ -1,16 +1,16 @@
-use crate::graph::{Graph, Graph16};
+use crate::graph::Graph;
 use crate::map::Map64;
 use crate::embedding::*;
 use crate::bitset::{Bitset, Bitset64};
 
 #[inline(always)]
-fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator<Item = Graph16> {
+fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<Item = G> {
     graph.edges_from_to(h.nodes(), h.nodes()).filter(move |(u, v)| {
         !h.has_edge(*u, *v)
     })
     //graph.difference(h).subgraph(h.nodes()).edges()
     .map(|(u, v)| {
-        let mut g = Graph16::empty();
+        let mut g = G::empty();
         g.add_node(u);
         g.add_node(v);
         g.add_edge(u, v);
@@ -22,7 +22,7 @@ fn compute_bridges<'a>(graph: &'a Graph16, h: &'a Graph16) -> impl 'a + Iterator
         }))
 }
 
-pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
+pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
 
@@ -33,10 +33,10 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
         c
     } else {
         // No cycle, graph must be a tree. Any embedding should be valid
-        return Some(RotationSystem16::simple(graph))
+        return Some(G::Embedding::simple(graph))
     };
     
-    let mut embedding = RotationSystem16::simple(&h);
+    let mut embedding = G::Embedding::simple(&h);
 
     let mut faces = Map64::new();
     let mut admissible_faces = Map64::new(); //[Bitset16::new(); 16];
@@ -144,13 +144,12 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             // update pointers to it.
             */
 
-            let new_bridges = compute_bridges(&bridge, &h);
                 //.map(|bridge| bridge.nodes());
 
-            for new_bridge in new_bridges {
+            for new_bridge in compute_bridges(&bridge, &h) {
                 //dbg!(new_bridge);
-                let j = bridges.push(new_bridge);
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
+                let j = bridges.push(new_bridge);
                 //dbg!(attachments);
                 admissible_faces.insert(j, Bitset64::new());
 
@@ -210,7 +209,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             //dbg!(embedding.face(face).collect::<Vec<_>>());
 
             let new_faces = embedding.embed_bisecting_path(face, &path);
-            h.union(&Graph16::from_path(&path));
+            h.union(&G::from_path(&path));
 
             //dbg!(&embedding);
 
@@ -253,13 +252,10 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
             }
 
             // TODO: we know the changes, can this be faster?
-            let new_bridges = compute_bridges(&bridge, &h);
-                //.map(|bridge| dbg!(bridge).nodes());
-
-            for new_bridge in new_bridges {
+            for new_bridge in compute_bridges(&bridge, &h) {
                 //dbg!(new_bridge);
-                let j = bridges.push(new_bridge);
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
+                let j = bridges.push(new_bridge);
                 //dbg!(attachments);
                 admissible_faces.insert(j, Bitset64::new());
 
@@ -290,7 +286,7 @@ pub fn fastdmp(graph: &Graph16) -> Option<RotationSystem16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::minors;
+    use crate::graph::{minors, Graph16};
 
     #[test]
     fn k4_planar() {
