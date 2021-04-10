@@ -80,7 +80,7 @@ struct TorusSearcher16 {
     admissible_faces: Map64<Bitset64>, //[Bitset16; 16],
     admissible_bridges: Map64<Bitset64>, // [HashSet<usize>; 16],
     bridges: Map64<Graph16>,
-    faces: Map64<Face16>,
+    faces: Map64<Face>,
     h: Graph16,
 }
 
@@ -163,7 +163,7 @@ impl TorusSearcher16 {
         (bridge, admissible_faces)
     }
 
-    fn remove_face(&mut self, i: usize) -> (Face16, Bitset64) {
+    fn remove_face(&mut self, i: usize) -> (Face, Bitset64) {
         let face = self.faces.take(i).unwrap();
         let admissible_bridges = self.admissible_bridges.take(i).unwrap();
         //self.admissible_bridges[i] = Bitset16::new();

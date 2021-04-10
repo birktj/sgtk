@@ -1,6 +1,8 @@
 pub type Seq16 = SmallSeq<16>;
 
-pub trait Seq {
+pub trait Seq: Clone {
+    type IterPerm: Iterator<Item = Self>;
+
     fn new() -> Self;
     fn len(&self) -> usize;
     fn get(&self, i: usize) -> usize;
@@ -19,6 +21,7 @@ pub trait Seq {
             seq: &self,
         }
     }
+    fn permutations(self) -> Self::IterPerm;
 }
 
 #[derive(Clone)]
@@ -66,6 +69,8 @@ pub struct SmallSeq<const N: usize> {
 }
 
 impl<const N: usize> Seq for SmallSeq<N> {
+    type IterPerm = SeqPermutations<N>;
+
     fn new() -> Self {
         Self {
             len: 0,
@@ -93,6 +98,14 @@ impl<const N: usize> Seq for SmallSeq<N> {
         } else {
             self.len -= 1;
             Some(self.values[self.len] as usize)
+        }
+    }
+
+    fn permutations(mut self) -> SeqPermutations<N> {
+        (&mut self.values[..self.len]).sort();
+
+        SeqPermutations {
+            seq: Some(self),
         }
     }
 }
@@ -164,15 +177,6 @@ impl<const N: usize> SmallSeq<N> {
         self.values.contains(&(val as u8))
     }
 
-    pub fn permutations(&self) -> SeqPermutations<N> {
-        let mut seq = *self;
-
-        (&mut seq.values[..seq.len]).sort();
-
-        SeqPermutations {
-            seq: Some(seq),
-        }
-    }
 }
 
 #[derive(Copy, Clone)]

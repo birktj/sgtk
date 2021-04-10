@@ -1,84 +1,180 @@
-use crate::seq::{Seq, Seq16, SeqPermutations};
-use crate::bitset::{Bitset, Bitset16};
-use crate::graph::{Graph, Graph16};
+use crate::seq::{Seq, SmallSeq, SeqPermutations};
+use crate::bitset::{self, Bitset};
+use crate::graph::{Graph, BitsetGraph};
 
-#[derive(Clone)]
-pub struct RotationSystem16 {
-    nodes: Bitset16,
-    edges: [Bitset16; 16],
-    order: [[u8; 16]; 16],
-    order_inv: [[u8; 16]; 16],
-}
+pub type RotationSystem16 = SmallRotationSystem<bitset::Bitset16, 16>;
+pub type RotationSystem32 = SmallRotationSystem<bitset::Bitset32, 32>;
+pub type RotationSystem64 = SmallRotationSystem<bitset::Bitset64, 64>;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
-pub struct Face16 {
+pub struct Face {
     u0: usize,
     v0: usize,
 }
 
-impl RotationSystem16 {
-    pub fn simple(graph: &Graph16) -> Self {
-        let nodes = graph.nodes();
-        let mut edges = [Bitset16::new(); 16];
-        let mut order = [[0; 16]; 16];
-        let mut order_inv = [[0; 16]; 16];
+pub trait RotationSystem<G: Graph>: Sized {
+    type EnumIter:  Iterator<Item = Self>;
+    type FacesIter: FacesIter<G, Self>;
 
-        for u in graph.nodes() {
-            edges[u] = graph.siblings(u);
-            for (v, w) in graph.siblings(u).into_iter()
-                .zip(graph.siblings(u).into_iter().cycle().skip(1))
-            {
-                order[u][v] = w as u8;
-                order_inv[u][w] = v as u8;
+    fn simple(graph: &G) -> Self;
+
+    fn enumerate(graph: &G) -> Self::EnumIter;
+
+    fn to_graph(&self) -> G;
+
+    fn genus(&self) -> usize;
+
+    fn faces<'a>(&'a self) -> Faces<'a, G, Self>;
+
+    fn face<'a>(&'a self, face: Face) -> FaceIter<'a, G, Self> {
+        FaceIter {
+            embedding: self,
+            face,
+            u: face.u0,
+            v: face.v0,
+            finished: false,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    fn face_nodes(&self, face: Face) -> G::Set {
+        let mut nodes = G::Set::new();
+        for (u, v) in self.face(face) {
+            nodes.set(u);
+            nodes.set(v);
+        }
+        nodes
+    }
+
+    fn after(&self, u: usize, v: usize) -> usize;
+
+    fn before(&self, u: usize, v: usize) -> usize;
+
+    fn insert_edge(&mut self, node: usize, after: usize, dest: usize);
+
+    fn insert_edge_any(&mut self, node: usize, dest: usize);
+
+    fn remove_edge_dir(&mut self, u: usize, v: usize);
+
+    fn remove_edge(&mut self, u: usize, v: usize) {
+        self.remove_edge_dir(u, v);
+        self.remove_edge_dir(v, u);
+    }
+
+    fn embed_free_edge(&mut self, u: usize, v: usize) {
+        self.insert_edge_any(u, v);
+        self.insert_edge_any(v, u);
+    }
+
+    fn embed_edge_after(&mut self, u: usize, u_after: usize, v: usize, v_after: usize) {
+        self.insert_edge(u, u_after, v);
+        self.insert_edge(v, v_after, u);
+    }
+
+    fn embed_edge_before(&mut self, u: usize, u_before: usize, v: usize) {
+        self.insert_edge(u, self.before(u, u_before), v);
+        self.insert_edge_any(v, u);
+    }
+
+    fn embed_bisecting_path(&mut self, face: Face, path: &G::Path) -> [Face; 2] {
+        let start = path.get(0);
+        let end   = path.get(path.len()-1);
+
+        let mut start_u = None;
+        let mut end_u = None;
+
+        for (u, v) in self.face(face) {
+            if start_u.is_none() && u == start {
+                start_u = Some(v);
+            }
+            if end_u.is_none() && v == end {
+                end_u = Some(u);
             }
         }
 
-        Self {
-            nodes,
-            edges,
-            order,
-            order_inv,
-        }
+        self.embed_bisecting_path_after(path, start_u.unwrap(), end_u.unwrap())
     }
 
-    pub fn enumerate(graph: &Graph16) -> RotationSystemEnumerate16 {
-        let curr = RotationSystem16::simple(graph);
-        let permutations = [SeqPermutations::empty(); 16];
+    fn embed_bisecting_path_after(&mut self, path: &G::Path, start_u: usize, end_u: usize) -> [Face; 2] {
+        let start     = path.get(0);
+        let start_snd = path.get(1);
+        let end       = path.get(path.len()-1);
+        let end_snd   = path.get(path.len()-2);
 
-        let flip_node = curr.nodes.into_iter()
-            .filter(|i| curr.edges[*i].count() > 2)
-            .next();
-
-        let mut enumerate = RotationSystemEnumerate16 {
-            flip_node,
-            curr,
-            permutations
-        };
-
-        if let Some(i) = enumerate.curr.nodes.smallest() {
-            enumerate.new_perm(i);
+        self.insert_edge(start, self.before(start, start_u), start_snd);
+        self.insert_edge(end, end_u, end_snd);
+        if start_snd != end {
+            self.insert_edge_any(start_snd, start);
+            self.insert_edge_any(end_snd, end);
         }
 
-        enumerate
-    }
-
-    pub fn to_graph(&self) -> Graph16 {
-        let mut graph = Graph16::empty();
-        for u in self.nodes {
-            graph.add_node(u);
-        }
-        for u in self.nodes {
-            for v in self.edges[u] {
-                graph.add_edge(u, v);
+        if path.len() > 2 {
+            for (u, v) in path.iter().skip(1).take(path.len()-3).zip(path.iter().skip(2)) {
+                self.embed_free_edge(u, v);
             }
         }
-        graph
-    }
 
-    pub fn genus(&self) -> usize {
-        (3 + self.to_graph().edges().count() - self.nodes.count() - self.faces().count()) / 2
+        // This should in theory give the two faces on each side of the bisecting path
+        [Face { u0: start, v0: start_snd }, Face { u0: start_snd, v0: start }]
     }
+}
 
+pub struct FaceIter<'a, G: Graph, R: RotationSystem<G>> {
+    embedding: &'a R,
+    face: Face,
+    u: usize,
+    v: usize,
+    finished: bool,
+    _marker: std::marker::PhantomData<G>,
+}
+
+impl<'a, G: Graph, R: RotationSystem<G>> Iterator for FaceIter<'a, G, R> {
+    type Item = (usize, usize);
+
+    fn next(&mut self) -> Option<(usize, usize)> {
+        if self.finished {
+            return None
+        }
+
+        let next_v = self.embedding.after(self.v, self.u);
+
+        let old_u = self.u;
+        self.u = self.v;
+        self.v = next_v;
+
+        if self.u == self.face.u0 && self.v == self.face.v0 {
+            self.finished = true;
+        }
+        Some((old_u, self.u))
+    }
+}
+
+pub struct Faces<'a, G: Graph, R: RotationSystem<G>> {
+    embedding: &'a R,
+    iter: R::FacesIter,
+}
+
+pub trait FacesIter<G: Graph, R: RotationSystem<G>> {
+    fn next_face(&mut self, embedding: &R) -> Option<Face>;
+}
+
+impl<'a, G: Graph, R: RotationSystem<G>> Iterator for Faces<'a, G, R> {
+    type Item = Face;
+
+    fn next(&mut self) -> Option<Face> {
+        self.iter.next_face(self.embedding)
+    }
+}
+
+#[derive(Clone)]
+pub struct SmallRotationSystem<B, const N: usize> {
+    nodes: B,
+    edges: [B; N],
+    order: [[u8; N]; N],
+    order_inv: [[u8; N]; N],
+}
+
+impl<B: Bitset, const N: usize> SmallRotationSystem<B, N> {
     pub fn siblings<'a>(&'a self, u: usize) -> impl 'a + Iterator<Item = usize> {
         let mut v = self.edges[u].smallest();
         let v0 = v;
@@ -97,58 +193,91 @@ impl RotationSystem16 {
             }
         })
     }
+}
 
-    pub fn faces<'a>(&'a self) -> impl 'a + Iterator<Item = Face16> {
-        let mut used = [Bitset16::new(); 16];
-        let mut visited = Bitset16::new();
 
-        std::iter::from_fn(move || {
-            while let Some(u) = self.nodes.intersection(&visited.invert()).smallest() {
-                if let Some(v) = self.edges[u]
-                    .intersection(&used[u].invert())
-                    .smallest()
-                {
-                    let face = Face16 { u0: u, v0: v };
-                    for (ki, kj) in self.face(face) {
-                        used[ki].set(kj);
-                    }
-                    return Some(face)
-                }
-                visited.set(u);
+impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for SmallRotationSystem<B, N> {
+    type EnumIter = SmallRotationSystemEnumerate<B, N>;
+    type FacesIter = SmallFacesIter<B, N>;
+
+    fn simple(graph: &BitsetGraph<B, N>) -> Self {
+        let nodes = graph.nodes();
+        let mut edges = [B::new(); N];
+        let mut order = [[0; N]; N];
+        let mut order_inv = [[0; N]; N];
+
+        for u in graph.nodes().iter() {
+            edges[u] = graph.siblings(u);
+            for (v, w) in graph.siblings(u).iter()
+                .zip(graph.siblings(u).iter().cycle().skip(1))
+            {
+                order[u][v] = w as u8;
+                order_inv[u][w] = v as u8;
             }
-            None
-        })
-    }
-
-    pub fn face<'a>(&'a self, face: Face16) -> impl 'a + Iterator<Item = (usize, usize)> {
-        let mut u = face.u0;
-        let mut v = face.v0;
-        let mut finished = false;
-        std::iter::from_fn(move || {
-            if finished {
-                return None
-            }
-
-            let next_v = usize::from(self.order[v][u]);
-
-            let old_u = u;
-            u = v;
-            v = next_v;
-
-            if u == face.u0 && v == face.v0 {
-                finished = true;
-            }
-            Some((old_u, u))
-        })
-    }
-
-    pub fn face_nodes(&self, face: Face16) -> Bitset16 {
-        let mut nodes = Bitset16::new();
-        for (u, v) in self.face(face) {
-            nodes.set(u);
-            nodes.set(v);
         }
-        nodes
+
+        Self {
+            nodes,
+            edges,
+            order,
+            order_inv,
+        }
+    }
+
+    fn enumerate(graph: &BitsetGraph<B, N>) -> SmallRotationSystemEnumerate<B, N> {
+        let curr = Self::simple(graph);
+        let permutations = [SeqPermutations::empty(); N];
+
+        let flip_node = curr.nodes.iter()
+            .filter(|i| curr.edges[*i].count() > 2)
+            .next();
+
+        let mut enumerate = SmallRotationSystemEnumerate {
+            flip_node,
+            curr,
+            permutations
+        };
+
+        if let Some(i) = enumerate.curr.nodes.smallest() {
+            enumerate.new_perm(i);
+        }
+
+        enumerate
+    }
+
+    fn to_graph(&self) -> BitsetGraph<B, N> {
+        let mut graph = BitsetGraph::empty();
+        for u in self.nodes.iter() {
+            graph.add_node(u);
+        }
+        for u in self.nodes.iter() {
+            for v in self.edges[u].iter() {
+                graph.add_edge(u, v);
+            }
+        }
+        graph
+    }
+
+    fn genus(&self) -> usize {
+        (3 + self.to_graph().edges().count() - self.nodes.count() - self.faces().count()) / 2
+    }
+
+    fn faces<'a>(&'a self) -> Faces<'a, BitsetGraph<B, N>, Self> {
+        Faces {
+            embedding: self,
+            iter: SmallFacesIter {
+                used: [B::new(); 16],
+                visited: B::new(),
+            },
+        }
+    }
+
+    fn after(&self, u: usize, v: usize) -> usize {
+        usize::from(self.order[u][v])
+    }
+
+    fn before(&self, u: usize, v: usize) -> usize {
+        usize::from(self.order_inv[u][v])
     }
 
     fn insert_edge(&mut self, node: usize, after: usize, dest: usize) {
@@ -179,88 +308,50 @@ impl RotationSystem16 {
         self.order[u][before] = after as u8;
         self.order_inv[u][after]  = before as u8;
     }
-
-    pub fn remove_edge(&mut self, u: usize, v: usize) {
-        self.remove_edge_dir(u, v);
-        self.remove_edge_dir(v, u);
-    }
-
-    pub fn embed_free_edge(&mut self, u: usize, v: usize) {
-        self.insert_edge_any(u, v);
-        self.insert_edge_any(v, u);
-    }
-
-    pub fn embed_edge_after(&mut self, u: usize, u_after: usize, v: usize, v_after: usize) {
-        self.insert_edge(u, u_after, v);
-        self.insert_edge(v, v_after, u);
-    }
-
-    pub fn embed_edge_before(&mut self, u: usize, u_before: usize, v: usize) {
-        self.insert_edge(u, usize::from(self.order_inv[u][u_before]), v);
-        self.insert_edge_any(v, u);
-    }
-
-    pub fn embed_bisecting_path(&mut self, face: Face16, path: &Seq16) -> [Face16; 2] {
-        let start = path.first().unwrap();
-        let end   = path.last().unwrap();
-
-        let mut start_u = None;
-        let mut end_u = None;
-
-        for (u, v) in self.face(face) {
-            if start_u.is_none() && u == start {
-                start_u = Some(v);
-            }
-            if end_u.is_none() && v == end {
-                end_u = Some(u);
-            }
-        }
-
-        self.embed_bisecting_path_after(path, start_u.unwrap(), end_u.unwrap())
-    }
-
-    pub fn embed_bisecting_path_after(&mut self, path: &Seq16, start_u: usize, end_u: usize) -> [Face16; 2] {
-        let start     = path.first().unwrap();
-        let start_snd = usize::from(path[1]);
-        let end       = path.last().unwrap();
-        let end_snd   = usize::from(path[path.len()-2]);
-
-        self.insert_edge(start, usize::from(self.order_inv[start][start_u]), start_snd);
-        self.insert_edge(end, end_u, end_snd);
-        if start_snd != end {
-            self.insert_edge_any(start_snd, start);
-            self.insert_edge_any(end_snd, end);
-        }
-
-        if path.len() > 2 {
-            for (u, v) in (&path.slice()[1..path.len()-2]).iter().zip(path.iter().skip(2)) {
-                self.embed_free_edge(usize::from(*u), v);
-            }
-        }
-
-        // This should in theory give the two faces on each side of the bisecting path
-        [Face16 { u0: start, v0: start_snd }, Face16 { u0: start_snd, v0: start }]
-    }
 }
 
-impl std::fmt::Debug for RotationSystem16 {
+impl<B: Bitset + std::fmt::Debug, const N: usize> std::fmt::Debug for SmallRotationSystem<B, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_map().entries(self.nodes.into_iter().map(|u| {
+        f.debug_map().entries(self.nodes.iter().map(|u| {
             (u, self.siblings(u).collect::<Vec<_>>())
         })).finish()
     }
 }
 
-pub struct RotationSystemEnumerate16 {
-    flip_node: Option<usize>,
-    curr: RotationSystem16,
-    permutations: [SeqPermutations<16>; 16],
+pub struct SmallFacesIter<B, const N: usize> {
+    used: [B; 16],
+    visited: B,
 }
 
-impl RotationSystemEnumerate16 {
+impl<B: Bitset + Copy, const N: usize> FacesIter<BitsetGraph<B, N>, SmallRotationSystem<B, N>> for SmallFacesIter<B, N> {
+    fn next_face(&mut self, embedding: &SmallRotationSystem<B, N>) -> Option<Face> {
+        while let Some(u) = embedding.nodes.intersection(&self.visited.invert()).smallest() {
+            if let Some(v) = embedding.edges[u]
+                .intersection(&self.used[u].invert())
+                .smallest()
+            {
+                let face = Face { u0: u, v0: v };
+                for (ki, kj) in embedding.face(face) {
+                    self.used[ki].set(kj);
+                }
+                return Some(face)
+            }
+            self.visited.set(u);
+        }
+        None
+    }
+}
+
+pub struct SmallRotationSystemEnumerate<B, const N: usize> {
+    flip_node: Option<usize>,
+    curr: SmallRotationSystem<B, N>,
+    permutations: [SeqPermutations<N>; N],
+}
+
+impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
     fn new_perm(&mut self, i: usize) {
-        let mut seq = Seq16::new();
-        for j in self.curr.edges[i].into_iter().skip(1) {
+        let mut seq: SmallSeq<N> = SmallSeq::new();
+        for j in self.curr.edges[i].iter().skip(1) {
             seq.push(j);
         }
         self.permutations[i] = seq.permutations();
@@ -293,13 +384,13 @@ impl RotationSystemEnumerate16 {
     }
 }
 
-impl Iterator for RotationSystemEnumerate16 {
-    type Item = RotationSystem16;
+impl<B: Bitset, const N: usize> Iterator for SmallRotationSystemEnumerate<B, N> {
+    type Item = SmallRotationSystem<B, N>;
 
-    fn next(&mut self) -> Option<RotationSystem16> {
-        for i in self.curr.nodes.into_iter().rev() {
+    fn next(&mut self) -> Option<SmallRotationSystem<B, N>> {
+        for i in self.curr.nodes.iter().rev() {
             while self.next_perm(i) {
-                for j in self.curr.nodes.intersection(&Bitset16::mask_ge(i+1)) {
+                for j in self.curr.nodes.intersection(&B::mask_ge(i+1)).iter() {
                     self.new_perm(j);
                     self.next_perm(j);
                 }
@@ -316,6 +407,7 @@ impl Iterator for RotationSystemEnumerate16 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::Graph16;
 
     #[test]
     fn count_toroidal_embeddings_k5() {

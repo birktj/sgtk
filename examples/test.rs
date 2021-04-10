@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use sgtk::*;
 use sgtk::graph::{minors, Graph, Graph16, Coloring, Coloring16};
+use sgtk::embedding::RotationSystem;
 
 fn main() {
     let mut k33 = Graph16::empty();

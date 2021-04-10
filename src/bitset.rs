@@ -1,11 +1,11 @@
 use crate::seq::*;
 use crate::permutation::{Permutation, SmallPerm};
 
-pub trait Bitset: Eq {
+pub trait Bitset: Eq + Clone {
     const SIZE: usize;
 
     type Enumerate: Iterator<Item = Self>;
-    type Iter: Iterator<Item = usize>;
+    type Iter: Iterator<Item = usize> + DoubleEndedIterator + Clone;
     type Perm: Permutation;
 
     fn new() -> Self;

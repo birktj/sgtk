@@ -2,7 +2,7 @@ pub type Perm16 = SmallPerm<16>;
 pub type Perm32 = SmallPerm<32>;
 pub type Perm64 = SmallPerm<64>;
 
-pub trait Permutation {
+pub trait Permutation: Clone {
     fn new() -> Self;
 
     fn len(&self) -> usize;

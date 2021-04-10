@@ -40,10 +40,10 @@ pub fn minors<'a, G: Graph + Clone>(graph: &'a G) -> impl 'a + Iterator<Item = G
 
 pub trait Graph: Sized + Clone {
     const MAXN: usize;
-    type Perm: Permutation + Clone;
-    type Set: Bitset<Perm = Self::Perm> + Clone;
-    type Path: Seq + Clone;
-    type Coloring: Coloring<Set = Self::Set, Perm = Self::Perm> + Clone;
+    type Perm: Permutation;
+    type Set: Bitset<Perm = Self::Perm>;
+    type Path: Seq;
+    type Coloring: Coloring<Set = Self::Set, Perm = Self::Perm>;
 
     fn empty() -> Self;
 
@@ -364,9 +364,9 @@ pub struct BitsetGraph<B, const N: usize> {
     g: [B; N],
 }
 
-impl<B: Bitset<Perm = SmallPerm<N>> + Copy, const N: usize> Graph for BitsetGraph<B, N> {
+impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
     const MAXN: usize = N;
-    type Perm = SmallPerm<N>;
+    type Perm = B::Perm;
     type Set = B;
     type Path = seq::SmallSeq<N>;
     type Coloring = SmallColoring<B, N>;
@@ -535,7 +535,7 @@ impl<G: Graph> Iterator for ComponentIter<G> {
 }
 
 
-pub trait Coloring {
+pub trait Coloring: Clone {
     type Perm: Permutation;
     type Set: Bitset<Perm = Self::Perm>;
 
@@ -572,9 +572,9 @@ impl<S, const N: usize> std::fmt::Debug for SmallColoring<S, N> {
     }
 }
 
-impl<S: Bitset<Perm = SmallPerm<N>>, const N: usize> Coloring for SmallColoring<S, N> {
+impl<S: Bitset, const N: usize> Coloring for SmallColoring<S, N> {
     type Set = S;
-    type Perm = SmallPerm<N>;
+    type Perm = S::Perm;
 
     fn new() -> Self {
         Self {
@@ -657,7 +657,7 @@ impl<S: Bitset<Perm = SmallPerm<N>>, const N: usize> Coloring for SmallColoring<
         // FIXME: assumes coloring is consecutive
 
         let mut end = N;
-        SmallPerm::from_iter(self.colors.iter().map(|c| {
+        Self::Perm::from_iter(self.colors.iter().map(|c| {
             if *c == 0 {
                 end -= 1;
                 end
