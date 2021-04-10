@@ -1,4 +1,4 @@
-use crate::seq::{Seq16, SeqPermutations};
+use crate::seq::{Seq, Seq16, SeqPermutations};
 use crate::bitset::{Bitset, Bitset16};
 use crate::Graph16;
 
@@ -26,13 +26,13 @@ impl<'a> Face16<'a> {
 
             let next_v = self.rotation_system.edges[v].iter()
                 .cycle() // Chain may be better?
-                .skip_while(|k| usize::from(**k) != u)
+                .skip_while(|k| *k != u)
                 .skip(1).next()
                 .expect("Graph is not consistent");
 
             let old_u = u;
             u = v;
-            v = usize::from(*next_v);
+            v = next_v;
 
             if u == self.u0 && v == self.v0 {
                 finished = true;
@@ -85,7 +85,7 @@ impl RotationSystem16 {
         let mut graph = Graph16::new(self.n);
         for u in 0..self.n {
             for v in self.edges[u].iter() {
-                graph.add_edge(u, usize::from(*v));
+                graph.add_edge(u, v);
             }
         }
 
@@ -106,12 +106,12 @@ impl RotationSystem16 {
         loop {
             f(u, v);
             let next_v = self.edges[v].iter().cycle() // Chain may be better?
-                .skip_while(|k| usize::from(**k) != u)
+                .skip_while(|k| *k != u)
                 .skip(1).next()
                 .expect("Graph is not consistent");
 
             u = v;
-            v = usize::from(*next_v);
+            v = next_v;
             //seq.push(v);
             if u == u0 && v == v0 {
                 break
@@ -130,15 +130,15 @@ impl RotationSystem16 {
         std::iter::from_fn(move || {
             while u < self.n {
                 while let Some(v) = v_iter.next() {
-                    if used[u].get(usize::from(*v)) {
+                    if used[u].get(v) {
                         continue
                     }
-                    self.find_face(u, usize::from(*v), |ki, kj| {
+                    self.find_face(u, v, |ki, kj| {
                         used[ki].set(kj);
                     });
                     return Some(Face16 {
                         u0: u,
-                        v0: usize::from(*v),
+                        v0: v,
                         rotation_system: &self,
                     })
                 }
@@ -159,11 +159,11 @@ impl RotationSystem16 {
         std::iter::from_fn(move || {
             while u < self.n {
                 while let Some(v) = v_iter.next() {
-                    if used[u].get(usize::from(*v)) {
+                    if used[u].get(v) {
                         continue
                     }
                     let mut res = Bitset16::new();
-                    self.find_face(u, usize::from(*v), |ki, kj| {
+                    self.find_face(u, v, |ki, kj| {
                         used[ki].set(kj);
                         res.set(ki);
                         res.set(kj);
@@ -185,8 +185,8 @@ impl RotationSystem16 {
 
         for u in 0..self.n {
             for v in self.edges[u].iter() {
-                if !used[u].get(usize::from(*v)) {
-                    self.find_face(u, usize::from(*v), |ki, kj| {
+                if !used[u].get(v) {
+                    self.find_face(u, v, |ki, kj| {
                         used[ki].set(kj);
                     });
                     /*
@@ -405,12 +405,12 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
             for (u, v) in face.iter() {
                 if start_i.is_none() && u == start {
                     start_i = embedding.edges[u].iter()
-                        .position(|k| usize::from(*k) == v);
+                        .position(|k| k == v);
                         //.map(|i| (i + 1) % embedding.edges[u].len());
                 }
                 if end_i.is_none() && v == end {
                     end_i = embedding.edges[v].iter()
-                        .position(|k| usize::from(*k) == u)
+                        .position(|k| k == u)
                         .map(|i| (i + 1) % embedding.edges[u].len());
                 }
             }
@@ -421,8 +421,6 @@ pub fn dmp(graph: &Graph16) -> Option<RotationSystem16> {
             }
 
             for (u, v) in path.iter().skip(1).zip(path.iter().skip(2)) {
-                let u = usize::from(*u);
-                let v = usize::from(*v);
                 embedding.edges[u].push(v);
                 embedding.edges[v].push(u);
                 h.add_node(u);

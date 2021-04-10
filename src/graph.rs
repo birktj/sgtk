@@ -99,8 +99,6 @@ impl Graph16 {
     pub fn from_path(path: &Seq16) -> Graph16 {
         let mut graph = Graph16::new(0);
         for (u, v) in path.iter().zip(path.iter().skip(1)) {
-            let u = usize::from(*u);
-            let v = usize::from(*v);
             graph.add_node(u);
             graph.add_node(v);
             graph.add_edge(u, v);
@@ -249,7 +247,7 @@ impl Graph16 {
         for (i, j) in permutation.iter().enumerate() {
             let mut bitset = Bitset16::from_u16(old[i]);
             bitset.shuffle(permutation);
-            self.g[*j as usize] = bitset.to_u16();
+            self.g[j] = bitset.to_u16();
         }
     }
 

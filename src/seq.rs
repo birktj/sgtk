@@ -1,19 +1,97 @@
-pub type Seq16 = Seq<16>;
+pub type Seq16 = SmallSeq<16>;
+
+pub trait Seq {
+    fn new() -> Self;
+    fn len(&self) -> usize;
+    fn get(&self, i: usize) -> usize;
+    fn push(&mut self, v: usize);
+    fn pop(&mut self) -> Option<usize>;
+    fn iter(&self) -> SeqIter<Self> {
+        SeqIter {
+            i: 0,
+            len: self.len(),
+            seq: &self,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct SeqIter<'a, S: ?Sized> {
+    i: usize,
+    len: usize,
+    seq: &'a S,
+}
+
+impl<'a, S: Seq> Iterator for SeqIter<'a, S> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<usize> {
+        if self.i < self.len {
+            let i = self.i;
+            self.i += 1;
+            Some(self.seq.get(i))
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.len - self.i, Some(self.len - self.i))
+    }
+}
+
+impl<'a, S: Seq> DoubleEndedIterator for SeqIter<'a, S> {
+    fn next_back(&mut self) -> Option<usize> {
+        if self.i < self.len {
+            self.len -= 1;
+            Some(self.seq.get(self.len))
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, S: Seq> ExactSizeIterator for SeqIter<'a, S> {}
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Seq<const N: usize> {
+pub struct SmallSeq<const N: usize> {
     len: usize,
     values: [u8; N]
 }
 
-impl<const N: usize> Seq<N> {
-    pub const fn new() -> Self {
+impl<const N: usize> Seq for SmallSeq<N> {
+    fn new() -> Self {
         Self {
             len: 0,
             values: [0; N]
         }
     }
 
+    fn len(&self) -> usize {
+        self.len
+    }
+
+    fn get(&self, i: usize) -> usize {
+        assert!(i < self.len);
+        usize::from(self.values[i])
+    }
+
+    fn push(&mut self, val: usize) {
+        self.values[self.len] = val as u8;
+        self.len += 1;
+    }
+
+    fn pop(&mut self) -> Option<usize> {
+        if self.len == 0 {
+            None
+        } else {
+            self.len -= 1;
+            Some(self.values[self.len] as usize)
+        }
+    }
+}
+
+impl<const N: usize> SmallSeq<N> {
     pub const fn from_slice(slice: &[u8]) -> Self {
         let mut values = [0; N];
         // We use a while loop to keep the function const
@@ -28,10 +106,6 @@ impl<const N: usize> Seq<N> {
         }
     }
 
-    pub const fn len(&self) -> usize {
-        self.len
-    }
-
     pub fn slice(&self) -> &[u8] {
         &self.values[0..self.len]
     }
@@ -42,20 +116,6 @@ impl<const N: usize> Seq<N> {
 
     pub const fn is_empty(&self) -> bool {
         self.len == 0
-    }
-
-    pub fn push(&mut self, val: usize) {
-        self.values[self.len] = val as u8;
-        self.len += 1;
-    }
-
-    pub fn pop(&mut self) -> Option<usize> {
-        if self.len == 0 {
-            None
-        } else {
-            self.len -= 1;
-            Some(self.values[self.len] as usize)
-        }
     }
 
     pub fn first(&self) -> Option<usize> {
@@ -94,10 +154,6 @@ impl<const N: usize> Seq<N> {
         (&mut self.values[0..self.len]).reverse()
     }
 
-    pub fn iter(&self) -> std::slice::Iter<u8> {
-        (&self.values[..self.len]).iter()
-    }
-
     pub fn contains(&self, val: usize) -> bool {
         self.values.contains(&(val as u8))
     }
@@ -115,7 +171,7 @@ impl<const N: usize> Seq<N> {
 
 #[derive(Copy, Clone)]
 pub struct SeqPermutations<const N: usize> {
-    seq: Option<Seq<N>>,
+    seq: Option<SmallSeq<N>>,
 }
 
 impl<const N: usize> SeqPermutations<N> {
@@ -127,16 +183,16 @@ impl<const N: usize> SeqPermutations<N> {
 }
 
 impl<const N: usize> Iterator for SeqPermutations<N> {
-    type Item = Seq<N>;
+    type Item = SmallSeq<N>;
 
-    fn next(&mut self) -> Option<Seq<N>> {
+    fn next(&mut self) -> Option<SmallSeq<N>> {
         let res = self.seq;
 
         if let Some(mut seq) = self.seq {
             let l = seq.iter().rev()
                 .scan(0, |st, x| {
-                    let res = x >= st;
-                    *st = *x;
+                    let res = x >= *st;
+                    *st = x;
                     Some(res)
                 })
                 .take_while(|x| *x)
@@ -145,10 +201,10 @@ impl<const N: usize> Iterator for SeqPermutations<N> {
             let i = seq.len - l;
 
             if i > 0 {
-                let x = seq[i-1];
+                let x = seq.get(i-1);
                 let j = seq.iter().enumerate()
                     .rev()
-                    .skip_while(|(_, y)| **y < x)
+                    .skip_while(|(_, y)| *y < x)
                     .next().unwrap().0;
 
                 seq.values.swap(i-1, j);
@@ -163,7 +219,7 @@ impl<const N: usize> Iterator for SeqPermutations<N> {
     }
 }
 
-impl<const N: usize> std::ops::Index<usize> for Seq<N> {
+impl<const N: usize> std::ops::Index<usize> for SmallSeq<N> {
     type Output = u8;
 
     fn index(&self, i: usize) -> &u8 {
@@ -172,14 +228,14 @@ impl<const N: usize> std::ops::Index<usize> for Seq<N> {
     }
 }
 
-impl<const N: usize> std::ops::IndexMut<usize>for Seq<N> {
+impl<const N: usize> std::ops::IndexMut<usize>for SmallSeq<N> {
     fn index_mut(&mut self, i: usize) -> &mut u8 {
         debug_assert!(i < self.len);
         &mut self.values[i]
     }
 }
 
-impl<const N: usize> std::fmt::Debug for Seq<N> {
+impl<const N: usize> std::fmt::Debug for SmallSeq<N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_list().entries(self.iter()).finish()
     }

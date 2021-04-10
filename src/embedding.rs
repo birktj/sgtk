@@ -1,4 +1,4 @@
-use crate::seq::{Seq16, SeqPermutations};
+use crate::seq::{Seq, Seq16, SeqPermutations};
 use crate::bitset::{Bitset, Bitset16};
 use crate::Graph16;
 
@@ -232,7 +232,7 @@ impl RotationSystem16 {
 
         if path.len() > 2 {
             for (u, v) in (&path.slice()[1..path.len()-2]).iter().zip(path.iter().skip(2)) {
-                self.embed_free_edge(usize::from(*u), usize::from(*v));
+                self.embed_free_edge(usize::from(*u), v);
             }
         }
 
@@ -269,7 +269,6 @@ impl RotationSystemEnumerate16 {
             let j0 = self.curr.edges[i].smallest().unwrap();
             let mut last = j0;
             for next in new.iter() {
-                let next = usize::from(*next);
                 self.curr.order[i][last] = next as u8;
                 self.curr.order_inv[i][next] = last as u8;
                 last = next;

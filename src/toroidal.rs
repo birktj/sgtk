@@ -1,6 +1,6 @@
 use crate::Graph16;
 use crate::map::Map64;
-use crate::seq::Seq16;
+use crate::seq::{Seq, Seq16};
 use crate::planar;
 use crate::embedding::*;
 use crate::bitset::{Bitset, Bitset64};
@@ -214,7 +214,6 @@ impl TorusSearcher16 {
                     }
                 }
                 for u in start_endpoints.iter() {
-                    let u = usize::from(*u);
                     self.embedding.embed_edge_before(start, u, end);
                     self.h.add_node(end);
                     self.h.add_edge(start, end);
@@ -263,8 +262,6 @@ impl TorusSearcher16 {
                 }
                 for u in start_endpoints.iter() {
                     for v in end_endpoints.iter() {
-                        let u = usize::from(*u);
-                        let v = usize::from(*v);
                         //dbg!(u, v);
                         let oldh = self.h.clone();
 

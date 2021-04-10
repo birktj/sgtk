@@ -1,7 +1,7 @@
 use crate::seq::*;
 use crate::permutation::{Permutation, SmallPerm};
 
-pub trait Bitset {
+pub trait Bitset: Eq {
     const SIZE: usize;
 
     type Enumerate: Iterator<Item = Self>;
@@ -15,6 +15,8 @@ pub trait Bitset {
     fn get(&self, i: usize) -> bool;
 
     fn set(&mut self, i: usize);
+
+    fn set_val(&mut self, i: usize, v: bool);
 
     fn clear(&mut self, i: usize);
 
@@ -89,6 +91,10 @@ macro_rules! bit_set {
 
             fn set(&mut self, i: usize) {
                 self.bitset |= 1 << i;
+            }
+
+            fn set_val(&mut self, i: usize, v: bool) {
+                self.bitset |= if v { 0 } else { 1 << i };
             }
 
             fn clear(&mut self, i: usize) {
@@ -266,7 +272,7 @@ impl Bitset16 {
         
         for (i, j) in permutation.iter().enumerate() {
             if old.get(i) {
-                self.set(*j as usize);
+                self.set(j);
             }
         }
     }
