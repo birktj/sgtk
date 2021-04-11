@@ -1,10 +1,26 @@
-use sgtk::graph::{subgraphs, Graph, Graph64};
-use sgtk::bitset::{Intset, Bitset};
-use std::collections::HashMap;
+use sgtk::graph::{minors, Graph64};
+use sgtk::prelude::*;
+use std::collections::{BTreeMap, HashMap};
 use std::collections::HashSet;
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "toroidal_obstructions", about = "Tool to search for toroidal obstructions.")]
+struct Opt {
+    /// Number of random graphs to test
+    #[structopt(short, long, default_value="100")]
+    count: u64,
+    /// Size of random graphs
+    #[structopt(short, default_value="50")]
+    n: usize,
+    /// Output file
+    #[structopt(parse(from_os_str))]
+    output: Option<PathBuf>,
+}
 
 fn find_toroidal_obstruction(graph: Graph64) -> Graph64 {
-    for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
+    for minor in minors(&graph).filter(|minor| minor.is_connected()) {
         if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)
         }
@@ -13,71 +29,52 @@ fn find_toroidal_obstruction(graph: Graph64) -> Graph64 {
     graph.to_canonical()
 }
 
+struct Stats {
+    num_toroidal: u64,
+    num_disconnected: u64,
+    num_obstructions: u64,
+    count_sizes: BTreeMap<usize, u64>,
+    obstructions: HashMap<Graph64, u64>,
+}
+
 fn main() {
-    let mut known_obstructions = HashSet::new();
-    for line in std::fs::read_to_string("torus-obstructions.txt").unwrap().lines() {
-        if let Some(obstruction) = sgtk::parse::from_upper_tri::<Graph64>(line) {
-            /*
-            dbg!(line);
-            if !obstruction.is_connected() {
-                continue
-            }
-            //dbg!(&obstruction);
-            assert!(sgtk::toroidal::find_embedding(&obstruction).is_none());
-            for minor in obstruction.subgraphs().filter(|minor| minor.is_connected()) {
-                //dbg!(&minor);
-                assert!(sgtk::toroidal::find_embedding(&minor).is_some());
-            }
-            */
-            known_obstructions.insert(obstruction.to_canonical());
-        }
-    }
+    let opt = Opt::from_args();
 
-    eprintln!("All known minors loaded");
+    let mut output = opt.output.map(|path| std::fs::File::open(path).unwrap())
+        .unwrap_or_else(|| std::fs::File::open("/dev/stdout").unwrap());
 
-    let mut obstructions = HashMap::new();
-    let mut new_obstructions = HashSet::new();
+    let mut stats = Stats {
+        num_toroidal: 0,
+        num_disconnected: 0,
+        num_obstructions: 0,
+        count_sizes: BTreeMap::new(),
+        obstructions: HashMap::new(),
+    };
 
-    for _ in 0..200 {
-        let graph: Graph64 = sgtk::random::graph(60);
+    for _ in 0..opt.count {
+        let graph: Graph64 = sgtk::random::graph(opt.n);
         if !graph.is_connected() {
+            stats.num_disconnected += 1;
             continue
         }
-        //dbg!(&graph);
+
         if sgtk::toroidal::find_embedding(&graph).is_none() {
+            stats.num_obstructions += 1;
             let obstruction = find_toroidal_obstruction(graph);
-            dbg!(sgtk::parse::to_graph6(&obstruction));
-            *obstructions.entry(obstruction).or_insert(0) += 1;
-            if obstruction.nodes().count() > 12 { // && !known_obstructions.contains(&obstruction) {
-                dbg!(obstruction.nodes().count());
-                if !known_obstructions.contains(&obstruction) {
-                    eprintln!("It is not known");
-                }
-                new_obstructions.insert(obstruction);
-            }
+            *stats.count_sizes.entry(obstruction.nodes().count()).or_insert(0) += 1;
+            *stats.obstructions.entry(obstruction).or_insert(0) += 1;
+        } else {
+            stats.num_toroidal += 1;
         }
     }
 
-    dbg!(obstructions.len());
-
-    //dbg!(&new_obstructions);
-
-    let new_obstructions: Vec<_> = new_obstructions.into_iter().collect();
-
-    dbg!(new_obstructions.len());
-
-    sgtk::viz::render_dot("test.pdf", &new_obstructions);
-
-    /*
-    let mut graph = sgtk::random::graph16(10);
-    while !graph.is_connected() || sgtk::planar::fastdmp(&graph).is_some() {
-        graph = sgtk::random::graph16(10);
+    eprintln!("{} random graphs tested", opt.count);
+    eprintln!("{} graphs where discarded, {} disconnected and {} toroidal",
+        stats.num_disconnected + stats.num_toroidal,
+        stats.num_disconnected,
+        stats.num_toroidal);
+    eprintln!("{} obstructions where found", stats.num_obstructions);
+    for (i, n) in &stats.count_sizes {
+        eprintln!("{} obstructions with {} nodes", n, i);
     }
-
-    let mut graphs = Vec::new();
-    graphs.push((graph, None));
-    sgtk::viz::render_dot("test.pdf", &graphs);
-    graphs.push((sgtk::toroidal::find_kuratowski(graph).to_canonical(), None));
-    sgtk::viz::render_dot("test.pdf", &graphs);
-    */
 }
