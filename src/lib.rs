@@ -14,5 +14,6 @@ pub mod embedding;
 pub mod planar;
 pub mod planar_old;
 pub mod toroidal;
+pub mod prelude;
 
 //pub use graph::Graph16;
