@@ -3,6 +3,7 @@ use sgtk::prelude::*;
 use std::collections::{HashSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::io::Write;
 use structopt::StructOpt;
 use anyhow::{anyhow, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle, HumanDuration};
@@ -17,6 +18,9 @@ struct Opt {
     /// List of new torus obstructions
     #[structopt(parse(from_os_str))]
     new_obstructions: Vec<PathBuf>,
+    /// File to write unkown obstructions to
+    #[structopt(long, parse(from_os_str))]
+    unknown_file: Option<PathBuf>,
     /// Check if the new obstructions really are obstructions
     #[structopt(short, long)]
     check: bool,
@@ -159,6 +163,18 @@ fn main() -> Result<()> {
     }
     if !unknown_minors.graphs.is_empty() {
         unknown_minors.print("Unknown minors");
+    }
+
+    if !unknown_obstructions.graphs.is_empty() {
+        if let Some(path) = opt.unknown_file {
+            let mut file = std::fs::File::create(&path)
+                .with_context(|| format!("Cannot create file to write unknowns to at {:?}", path))?;
+            for obstruction in &unknown_obstructions.graphs {
+                writeln!(file, "{}", sgtk::parse::to_graph6(obstruction))
+                    .context("Cannot write new unknown obstruction")?;
+            }
+            file.flush()?;
+        }
     }
 
     Ok(())
