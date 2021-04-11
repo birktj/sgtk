@@ -12,7 +12,7 @@ pub struct Face {
     v0: usize,
 }
 
-pub trait RotationSystem<G: Graph>: Sized {
+pub trait RotationSystem<G: Graph>: Sized + Clone {
     type EnumIter:  Iterator<Item = Self>;
     type FacesIter: FacesIter<G, Self>;
 
