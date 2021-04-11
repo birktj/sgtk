@@ -1,7 +1,6 @@
-use crate::graph::Graph;
-use crate::map::Map64;
-use crate::embedding::*;
-use crate::bitset::{Intset, Bitset, Bitset64};
+use crate::map::{Map64, FullMapError};
+use crate::prelude::*;
+use crate::bitset::{Bitset64};
 
 #[inline(always)]
 fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<Item = G> {
@@ -23,17 +22,20 @@ fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<I
 }
 
 pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
+    dmp_inner(graph).unwrap()
+}
+fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> {
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
 
     if node_count >= 3 && edge_count + 6 > 3*node_count {
-        return None
+        return Ok(None)
     }
     let mut h = if let Some(c) = graph.cycle() {
         c
     } else {
         // No cycle, graph must be a tree. Any embedding should be valid
-        return Some(G::Embedding::simple(graph))
+        return Ok(Some(G::Embedding::simple(graph)))
     };
     
     let mut embedding = G::Embedding::simple(&h);
@@ -51,13 +53,13 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
     //dbg!(graph, h, &bridges);
 
     for (i, _) in bridges.iter() {
-        admissible_faces.insert(i, Bitset64::new());
+        admissible_faces.insert(i, Bitset64::new())?;
     }
 
     for face in embedding.faces() {
         let face_nodes = embedding.face_nodes(face);
-        let i = faces.push(face);
-        admissible_bridges.insert(i, Bitset64::new());
+        let i = faces.push(face)?;
+        admissible_bridges.insert(i, Bitset64::new())?;
 
         for (j, bridge) in bridges.iter() {
             let attachments = h.nodes().intersection(&bridge.nodes());
@@ -73,7 +75,7 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
         if admissible_faces[i].is_empty() {
             // FIXME: can this happen at this point?
             // A bridge has no addmissible faces, no embedding is possible
-            return None
+            return Ok(None)
         } else if admissible_faces[i].count() == 1 {
             one_admissible.set(i);
         }
@@ -93,7 +95,7 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
         } else if let Some(bridge) = bridges.pop() {
             bridge
         } else {
-            return Some(embedding)
+            return Ok(Some(embedding))
         };
 
         let bridge_nodes = bridge.nodes();
@@ -149,9 +151,9 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
             for new_bridge in compute_bridges(&bridge, &h) {
                 //dbg!(new_bridge);
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
-                let j = bridges.push(new_bridge);
+                let j = bridges.push(new_bridge)?;
                 //dbg!(attachments);
-                admissible_faces.insert(j, Bitset64::new());
+                admissible_faces.insert(j, Bitset64::new())?;
 
                 for face_j in old_admissible_faces {
                     let face = faces[face_j];
@@ -165,7 +167,7 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
                 //dbg!(admissible_faces[j]);
                 if admissible_faces[j].is_empty() {
                     // Bridge with no admissible faces, there is no embedding
-                    return None
+                    return Ok(None)
                 }
                 if admissible_faces[j].count() == 1 {
                     one_admissible.set(j);
@@ -221,10 +223,10 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
             //admissible_bridges[face_i] = Bitset16::new();
 
             let mut new_faces_idx = [0; 2];
-            new_faces_idx[0] = faces.push(new_faces[0]);
-            new_faces_idx[1] = faces.push(new_faces[1]);
+            new_faces_idx[0] = faces.push(new_faces[0])?;
+            new_faces_idx[1] = faces.push(new_faces[1])?;
             for j in &new_faces_idx {
-                admissible_bridges.insert(*j, Bitset64::new());
+                admissible_bridges.insert(*j, Bitset64::new())?;
             }
 
             for bridge in old_admissible_bridges {
@@ -241,7 +243,7 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
 
                 if admissible_faces[bridge].is_empty() {
                     // Bridge with no admissible faces, there is no embedding
-                    return None
+                    return Ok(None)
                 }
                 if admissible_faces[bridge].count() == 1 {
                     // FIXME: make sure we arent pushing here too many times
@@ -255,9 +257,9 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
             for new_bridge in compute_bridges(&bridge, &h) {
                 //dbg!(new_bridge);
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
-                let j = bridges.push(new_bridge);
+                let j = bridges.push(new_bridge)?;
                 //dbg!(attachments);
-                admissible_faces.insert(j, Bitset64::new());
+                admissible_faces.insert(j, Bitset64::new())?;
 
                 for face_j in &new_faces_idx {
                     let face = faces[*face_j];
@@ -271,7 +273,7 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
                 //dbg!(admissible_faces[j]);
                 if admissible_faces[j].is_empty() {
                     // Bridge with no admissible faces, there is no embedding
-                    return None
+                    return Ok(None)
                 }
                 if admissible_faces[j].count() == 1 {
                     one_admissible.set(j);

@@ -1,9 +1,9 @@
-use crate::graph::Graph;
-use crate::map::Map64;
-use crate::seq::{Seq, Seq16};
+use crate::map::{Map64, FullMapError};
+use crate::seq::Seq16;
 use crate::planar;
-use crate::embedding::*;
-use crate::bitset::{Intset, Bitset, Bitset64};
+use crate::bitset::Bitset64;
+use crate::embedding::Face;
+use crate::prelude::*;
 
 pub fn find_kuratowski<G: Graph>(mut graph: G) -> G {
     for (u, v) in graph.clone().edges() {
@@ -66,8 +66,8 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     }
 
     for embedding in G::Embedding::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
-        if let Some(mut searcher) = TorusSearcher::new(embedding, graph) {
-            if searcher.search() {
+        if let Some(mut searcher) = TorusSearcher::new(embedding, graph).unwrap() {
+            if searcher.search().unwrap() {
                 return Some(searcher.embedding)
             }
         }
@@ -85,7 +85,7 @@ struct TorusSearcher<G: Graph> {
 }
 
 impl<G: Graph> TorusSearcher<G> {
-    fn new(embedding: G::Embedding, graph: &G) -> Option<Self> {
+    fn new(embedding: G::Embedding, graph: &G) -> Result<Option<Self>, FullMapError> {
         let h = embedding.to_graph();
         let faces: Map64<_> = embedding.faces().collect();
         let bridges: Map64<_> = compute_bridges(graph, &h).collect();
@@ -96,10 +96,10 @@ impl<G: Graph> TorusSearcher<G> {
         let mut admissible_bridges = Map64::new(); // [HashSet<usize>; 16] = Default::default();
 
         for (i, _) in faces.iter() {
-            admissible_bridges.insert(i, Bitset64::new());
+            admissible_bridges.insert(i, Bitset64::new())?;
         }
         for (i, bridge) in bridges.iter() {
-            admissible_faces.insert(i, Bitset64::new());
+            admissible_faces.insert(i, Bitset64::new())?;
             for (j, face) in faces.iter() {
                 let attachments = h.nodes().intersection(&bridge.nodes());
                 if embedding.face_nodes(*face).is_superset(&attachments) {
@@ -108,17 +108,17 @@ impl<G: Graph> TorusSearcher<G> {
                 }
             }
             if admissible_faces[i].is_empty() {
-                return None
+                return Ok(None)
             }
         }
-        Some(Self {
+        Ok(Some(Self {
             embedding,
             admissible_faces,
             admissible_bridges,
             bridges,
             faces,
             h,
-        })
+        }))
     }
 
     fn update_faces(&mut self, bridge_i: usize, face_i: usize) {
@@ -130,11 +130,11 @@ impl<G: Graph> TorusSearcher<G> {
         }
     }
 
-    fn add_bridge(&mut self, bridge: G, admissible_faces: Bitset64) -> Option<usize> {
+    fn add_bridge(&mut self, bridge: G, admissible_faces: Bitset64) -> Result<Option<usize>, FullMapError> {
         let attachments = self.h.nodes().intersection(&bridge.nodes());
-        let i = self.bridges.push(bridge);
+        let i = self.bridges.push(bridge)?;
 
-        self.admissible_faces.insert(i, Bitset64::new());
+        self.admissible_faces.insert(i, Bitset64::new())?;
 
         for j in admissible_faces {
             if self.embedding.face_nodes(self.faces[j]).is_superset(&attachments) {
@@ -145,9 +145,9 @@ impl<G: Graph> TorusSearcher<G> {
         if self.admissible_faces[i].is_empty() {
             // No embedding
             self.remove_bridge(i);
-            None
+            Ok(None)
         } else {
-            Some(i)
+            Ok(Some(i))
         }
     }
 
@@ -175,13 +175,13 @@ impl<G: Graph> TorusSearcher<G> {
         (face, admissible_bridges)
     }
 
-    fn search(&mut self) -> bool {
+    fn search(&mut self) -> Result<bool, FullMapError> {
         //dbg!("search");
         //dbg!(&self.embedding);
         //dbg!(&self.faces);
         //dbg!(&self.bridges);
         if self.bridges.is_empty() {
-            return true
+            return Ok(true)
         }
         let (bridge_i, bridge) = self.bridges.pop().unwrap();
         let bridge_nodes = bridge.nodes();
@@ -226,7 +226,7 @@ impl<G: Graph> TorusSearcher<G> {
                     let mut ok = true;
 
                     for new_bridge in compute_bridges(&bridge, &self.h.clone()) {
-                        if let Some(i) = self.add_bridge(new_bridge, new_faces_idx) {
+                        if let Some(i) = self.add_bridge(new_bridge, new_faces_idx)? {
                             new_bridges_idx.push(i);
                         } else {
                             ok = false;
@@ -234,8 +234,8 @@ impl<G: Graph> TorusSearcher<G> {
                         }
                     }
 
-                    if ok && self.search() {
-                        return true
+                    if ok && self.search()? {
+                        return Ok(true)
                     }
                     self.h.del_edge(start, end);
                     self.h.del_node(end);
@@ -269,8 +269,8 @@ impl<G: Graph> TorusSearcher<G> {
                         self.h.union(&G::from_path(&path));
 
                         let mut new_faces_idx = Bitset64::new();
-                        new_faces_idx.set(self.faces.push(new_faces[0]));
-                        new_faces_idx.set(self.faces.push(new_faces[1]));
+                        new_faces_idx.set(self.faces.push(new_faces[0])?);
+                        new_faces_idx.set(self.faces.push(new_faces[1])?);
 
                         for idx in new_faces_idx {
                             self.admissible_bridges.insert(idx, Bitset64::new());
@@ -292,7 +292,7 @@ impl<G: Graph> TorusSearcher<G> {
 
                         if ok {
                             for new_bridge in compute_bridges(&bridge, &self.h.clone()) {
-                                if let Some(i) = self.add_bridge(new_bridge, new_faces_idx) {
+                                if let Some(i) = self.add_bridge(new_bridge, new_faces_idx)? {
                                     new_bridges_idx.push(i);
                                 } else {
                                     ok = false;
@@ -301,8 +301,8 @@ impl<G: Graph> TorusSearcher<G> {
                             }
                         }
 
-                        if ok && self.search() {
-                            return true
+                        if ok && self.search()? {
+                            return Ok(true)
                         }
 
                         self.h = oldh;
@@ -321,20 +321,20 @@ impl<G: Graph> TorusSearcher<G> {
                     }
                 }
                 //dbg!("insert", face_i);
-                self.faces.insert(face_i, face);
-                self.admissible_bridges.insert(face_i, old_admissible_bridges);
+                self.faces.insert(face_i, face)?;
+                self.admissible_bridges.insert(face_i, old_admissible_bridges)?;
                 for bridge_j in self.admissible_bridges[face_i] {
                     self.admissible_faces[bridge_j].set(face_i);
                 }
             }
         }
-        self.bridges.insert(bridge_i, bridge);
-        self.admissible_faces.insert(bridge_i, old_admissible_faces);
+        self.bridges.insert(bridge_i, bridge)?;
+        self.admissible_faces.insert(bridge_i, old_admissible_faces)?;
 
         for j in self.admissible_faces[bridge_i] {
             self.admissible_bridges[j].set(bridge_i);
         }
-        false
+        Ok(false)
     }
 }
 
