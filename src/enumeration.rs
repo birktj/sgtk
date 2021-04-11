@@ -15,7 +15,7 @@ fn check_auto<'a>(n: usize, cut_vert: usize, auto_gens: &'a HashSet<Perm16>) -> 
     std::iter::from_fn(move || {
         loop {
             while let Some(gen) = gen_iter.next() {
-                let mut new_perm = perm.chain(gen);
+                let new_perm = perm.chain(gen);
                 if !seen_perms.contains(&new_perm) {
                     seen_perms.insert(new_perm);
                     perms.push(new_perm);
@@ -217,7 +217,7 @@ impl<F: FnMut(&Graph16) -> bool> Enumerator16<F> {
                 let mut nodes = new_graph.nodes();
                 nodes.clear(cut_vertex);
 
-                let mut m_z = new_graph.subgraph(&nodes);
+                let m_z = new_graph.subgraph(&nodes);
 
                 //dbg!(n, cut_vertex, search_res.canonical_relabeling, nodes, m_z, graph);
 

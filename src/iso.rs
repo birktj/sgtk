@@ -1,9 +1,7 @@
 use std::collections::HashSet;
 use std::hash::Hash;
-use crate::graph::{Graph, Coloring, Graph16, Coloring16};
-use crate::permutation::{Permutation, Perm16};
-use crate::seq::{Seq, Seq16};
-use crate::bitset::{Intset, Bitset, Bitset64};
+use crate::prelude::*;
+use crate::bitset::Bitset64;
 
 pub fn refine<G: Graph>(graph: &G, mut coloring: G::Coloring, seq: G::Path) -> G::Coloring {
     let mut cell_set = Bitset64::new();
@@ -53,7 +51,6 @@ pub struct SearchResults<G: Graph> {
     pub automorphisms: HashSet<G::Perm>,
     pub canonical_relabeling: G::Perm,
     pub canonical_graph: G,
-    pub orbits: Seq16,
 }
 
 pub fn search_tree<G: Graph + Ord>(graph: G) -> SearchResults<G>
@@ -75,7 +72,6 @@ pub fn search_tree<G: Graph + Ord>(graph: G) -> SearchResults<G>
         automorphisms: tree.automorphisms,
         canonical_relabeling: canonical.0,
         canonical_graph: canonical.1.end_graph.unwrap(),
-        orbits: tree.orbits,
     }
 }
 
@@ -85,7 +81,6 @@ pub struct SearchTree<G: Graph> {
     autonodes: HashSet<G::Path>,
     largest_invariant: Option<(G::Perm, NodeInvariant<G>)>,
     first_node: Option<(G::Perm, NodeInvariant<G>)>,
-    orbits: Seq16,
     pub auto_prune: bool,
 }
 
@@ -94,17 +89,12 @@ impl<G: Graph + Ord> SearchTree<G>
           G::Path: Eq + Hash
 {
     pub fn new(graph: G) -> SearchTree<G> {
-        let mut orbits = Seq16::new();
-        for i in 0..16 {
-            orbits.push(i);
-        }
         SearchTree {
             graph,
             automorphisms: HashSet::new(),
             autonodes: HashSet::new(),
             largest_invariant: None,
             first_node: None,
-            orbits,
             auto_prune: true,
         }
     }

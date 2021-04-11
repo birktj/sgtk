@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use crate::seq::*;
 use crate::permutation::{Permutation, SmallPerm};
 
 pub trait Intset {

@@ -311,7 +311,7 @@ impl<T> std::iter::FromIterator<T> for DynMap<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let mut map = DynMap::new();
         for val in iter {
-            map.push(val);
+            map.push(val).unwrap();
         }
         map
     }

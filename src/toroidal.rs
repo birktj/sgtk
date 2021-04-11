@@ -77,7 +77,7 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     None
 }
 
-fn search_embedding<G: Graph, SM, BM, FM>(mut embedding: G::Embedding, graph: &G) -> Result<Option<G::Embedding>, FullMapError>
+fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, graph: &G) -> Result<Option<G::Embedding>, FullMapError>
     where SM: Slotmap,
           SM::Output: Intset + Sized,
           BM: Slotmap<Output = G>,
@@ -311,7 +311,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                         new_faces_idx.set(self.faces.push(new_faces[1])?);
 
                         for idx in &new_faces_idx {
-                            self.admissible_bridges.insert(idx, SM::Output::new());
+                            self.admissible_bridges.insert(idx, SM::Output::new())?;
                         }
 
                         let mut ok = true;
