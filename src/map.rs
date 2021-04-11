@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::bitset::{Bitset, Bitset16, Bitset32, Bitset64, Bitset128};
 use std::mem::MaybeUninit;
 use std::ops::Index;
@@ -21,8 +22,6 @@ pub trait Slotmap: Index<usize> + IndexMut<usize> where Self::Output: Sized, for
     fn take(&mut self, i: usize) -> Option<Self::Output>;
 
     fn insert(&mut self, i: usize, val: Self::Output) -> Result<(), FullMapError>;
-
-    fn swap(&mut self, i: usize, j: usize);
 
     fn is_empty(&self) -> bool;
 
@@ -72,11 +71,6 @@ impl<T, B: Bitset, const N: usize> Slotmap for Map<T, B, N> {
         self.occupied.set(i);
         self.values[i] = MaybeUninit::new(val);
         Ok(())
-    }
-
-    fn swap(&mut self, i: usize, j: usize) {
-        self.occupied.swap(i, j);
-        self.values.swap(i, j);
     }
 
     fn is_empty(&self) -> bool {
@@ -212,5 +206,126 @@ impl<T, B: Bitset, const N: usize> Iterator for IntoIterMap<T, B, N> {
 
     fn next(&mut self) -> Option<(usize, T)> {
         self.map.pop()
+    }
+}
+
+#[derive(Clone)]
+pub struct DynMap<T> {
+    counter: usize,
+    values: HashMap<usize, T>,
+}
+
+impl<T> Slotmap for DynMap<T> {
+    fn new() -> Self {
+        Self {
+            counter: 0,
+            values: HashMap::new(),
+        }
+    }
+
+    fn push(&mut self, val: T) -> Result<usize, FullMapError> {
+        let i = self.counter;
+        self.counter += 1;
+        self.values.insert(i, val);
+        Ok(i)
+    }
+
+    fn pop(&mut self) -> Option<(usize, T)> {
+        let i = *self.values.keys().next()?;
+        Some((i, self.take(i)?))
+    }
+
+    fn take(&mut self, i: usize) -> Option<T> {
+        self.values.remove(&i)
+    }
+
+    fn insert(&mut self, i: usize, val: T) -> Result<(), FullMapError> {
+        if self.values.contains_key(&i) {
+            Err(FullMapError)
+        } else  {
+            if self.counter <= i {
+                self.counter = i + 1;
+            }
+            self.values.insert(i, val);
+            Ok(())
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.values.is_empty()
+    }
+
+    fn count(&self) -> usize {
+        self.values.len()
+    }
+
+}
+
+impl<T> DynMap<T> {
+    pub fn iter(&self) -> IterDynMap<T> {
+        IterDynMap {
+            iter: self.values.iter(),
+        }
+    }
+}
+
+impl<T> std::ops::Index<usize> for DynMap<T> {
+    type Output = T;
+
+    fn index(&self, i: usize) -> &T {
+        &self.values[&i]
+    }
+}
+
+impl<T> std::ops::IndexMut<usize> for DynMap<T> {
+    fn index_mut(&mut self, i: usize) -> &mut T {
+        self.values.get_mut(&i).unwrap()
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for DynMap<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.iter()).finish()
+    }
+}
+
+impl<T> IntoIterator for DynMap<T> {
+    type Item = (usize, T);
+    type IntoIter = std::collections::hash_map::IntoIter<usize, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.values.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a DynMap<T> {
+    type Item = (usize, &'a T);
+    type IntoIter = IterDynMap<'a, T>;
+
+    fn into_iter(self) -> IterDynMap<'a, T> {
+        self.iter()
+    }
+}
+
+impl<T> std::iter::FromIterator<T> for DynMap<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut map = DynMap::new();
+        for val in iter {
+            map.push(val);
+        }
+        map
+    }
+}
+
+pub struct IterDynMap<'a, T> {
+    iter: std::collections::hash_map::Iter<'a, usize, T>,
+}
+
+impl<'a, T> Iterator for IterDynMap<'a, T> {
+    type Item = (usize, &'a T);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let (i, val) = self.iter.next()?;
+        Some((*i, val))
     }
 }

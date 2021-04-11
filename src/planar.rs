@@ -1,5 +1,5 @@
-use crate::map::{Map64, FullMapError};
-use crate::bitset::{Bitset64};
+use crate::map::{Map64, DynMap, FullMapError};
+use crate::bitset::{Bitset64, DynIntSet};
 use crate::embedding::Face;
 use crate::prelude::*;
 
@@ -23,12 +23,17 @@ fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<I
 }
 
 pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
-    dmp_inner::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(graph).unwrap()
+    dmp_inner::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(graph)
+        .unwrap_or_else(|_| {
+            dmp_inner::<G, DynIntSet, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(graph)
+                .unwrap()
+        })
 }
 fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = G>, FM: Slotmap<Output = Face>>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
     where for<'a> &'a SM: IntoIterator<Item = (usize, &'a B)>,
           for<'a> &'a BM: IntoIterator<Item = (usize, &'a G)>,
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
+          for<'a> &'a B: IntoIterator<Item = usize>,
 {
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
@@ -114,7 +119,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
         let old_admissible_faces = admissible_faces.take(i).unwrap();
         //admissible_faces[i] = Bitset16::new();
 
-        for face in old_admissible_faces.iter() {
+        for face in &old_admissible_faces {
             admissible_bridges[face].clear(i);
         }
 
@@ -158,7 +163,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
                 //dbg!(attachments);
                 admissible_faces.insert(j, B::new())?;
 
-                for face_j in old_admissible_faces.iter() {
+                for face_j in &old_admissible_faces {
                     let face = faces[face_j];
                     //dbg!(face_j);
                     //dbg!(embedding.face_nodes(face));
@@ -232,7 +237,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
                 admissible_bridges.insert(*j, B::new())?;
             }
 
-            for bridge in old_admissible_bridges.iter() {
+            for bridge in &old_admissible_bridges {
                 admissible_faces[bridge].clear(face_i);
 
                 let attachments = h.nodes().intersection(&bridges[bridge].nodes());

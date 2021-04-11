@@ -498,8 +498,8 @@ pub struct EdgeIter<'a, G: Graph> {
     u: usize,
     to: G::Set,
     from: G::Set,
-    iter_u: <G::Set as Intset>::Iter,
-    iter_v: <G::Set as Intset>::Iter,
+    iter_u: <G::Set as Bitset>::Iter,
+    iter_v: <G::Set as Bitset>::Iter,
 }
 
 impl<'a, G: Graph> Iterator for EdgeIter<'a, G> {
