@@ -1,9 +1,10 @@
-use sgtk::graph::{minors, Graph, Graph16};
+use sgtk::graph::{subgraphs, Graph, Graph64};
+use sgtk::bitset::{Intset, Bitset};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
-    for minor in minors(&graph).filter(|minor| minor.is_connected()) {
+fn find_toroidal_obstruction(graph: Graph64) -> Graph64 {
+    for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
         if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)
         }
@@ -15,7 +16,7 @@ fn find_toroidal_obstruction(graph: Graph16) -> Graph16 {
 fn main() {
     let mut known_obstructions = HashSet::new();
     for line in std::fs::read_to_string("torus-obstructions.txt").unwrap().lines() {
-        if let Some(obstruction) = sgtk::parse::from_upper_tri::<Graph16>(line) {
+        if let Some(obstruction) = sgtk::parse::from_upper_tri::<Graph64>(line) {
             /*
             dbg!(line);
             if !obstruction.is_connected() {
@@ -32,11 +33,13 @@ fn main() {
         }
     }
 
+    eprintln!("All known minors loaded");
+
     let mut obstructions = HashMap::new();
     let mut new_obstructions = HashSet::new();
 
     for _ in 0..200 {
-        let graph: Graph16 = sgtk::random::graph(15);
+        let graph: Graph64 = sgtk::random::graph(60);
         if !graph.is_connected() {
             continue
         }
@@ -45,8 +48,11 @@ fn main() {
             let obstruction = find_toroidal_obstruction(graph);
             dbg!(sgtk::parse::to_graph6(&obstruction));
             *obstructions.entry(obstruction).or_insert(0) += 1;
-            if !known_obstructions.contains(&obstruction) {
-                eprintln!("It is not known");
+            if obstruction.nodes().count() > 12 { // && !known_obstructions.contains(&obstruction) {
+                dbg!(obstruction.nodes().count());
+                if !known_obstructions.contains(&obstruction) {
+                    eprintln!("It is not known");
+                }
                 new_obstructions.insert(obstruction);
             }
         }
@@ -54,7 +60,7 @@ fn main() {
 
     dbg!(obstructions.len());
 
-    dbg!(&new_obstructions);
+    //dbg!(&new_obstructions);
 
     let new_obstructions: Vec<_> = new_obstructions.into_iter().collect();
 

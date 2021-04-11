@@ -3,7 +3,7 @@ use crate::map::Map64;
 use crate::seq::{Seq, Seq16};
 use crate::planar;
 use crate::embedding::*;
-use crate::bitset::{Bitset, Bitset64};
+use crate::bitset::{Intset, Bitset, Bitset64};
 
 pub fn find_kuratowski<G: Graph>(mut graph: G) -> G {
     for (u, v) in graph.clone().edges() {

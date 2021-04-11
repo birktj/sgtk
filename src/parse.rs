@@ -1,5 +1,5 @@
 use crate::graph::Graph;
-use crate::bitset::Bitset;
+use crate::bitset::{Intset, Bitset};
 
 pub fn from_graph6<G: Graph>(mut s: &str) -> G {
     let n = if s.starts_with("~~") {
@@ -72,7 +72,7 @@ pub fn from_upper_tri<G: Graph>(mut s: &str) -> Option<G> {
     s = s.trim();
     let sn = s.split(' ').next().unwrap();
     let n = sn.parse::<usize>().unwrap();
-    if n > 16 {
+    if n > G::MAXN {
         return None
     }
     s = s.strip_prefix(sn).unwrap();

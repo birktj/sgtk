@@ -3,10 +3,10 @@ use std::hash::Hash;
 use crate::graph::{Graph, Coloring, Graph16, Coloring16};
 use crate::permutation::{Permutation, Perm16};
 use crate::seq::{Seq, Seq16};
-use crate::bitset::{Bitset, Bitset16};
+use crate::bitset::{Intset, Bitset, Bitset64};
 
 pub fn refine<G: Graph>(graph: &G, mut coloring: G::Coloring, seq: G::Path) -> G::Coloring {
-    let mut cell_set = Bitset16::new();
+    let mut cell_set = Bitset64::new();
     for x in seq.iter() {
         cell_set.set(x);
     }
@@ -20,7 +20,7 @@ pub fn refine<G: Graph>(graph: &G, mut coloring: G::Coloring, seq: G::Path) -> G
         let w_cell = coloring.get_cell(w);
 
         for x in coloring.cells().iter() {
-            let mut frags = [Bitset16::new(); 17];
+            let mut frags = [Bitset64::new(); 65];
             let x_cell = coloring.get_cell(x);
 
             for u in x_cell.iter() {
@@ -28,7 +28,7 @@ pub fn refine<G: Graph>(graph: &G, mut coloring: G::Coloring, seq: G::Path) -> G
                 frags[w_edges].set(u);
             }
             
-            let mut x_set = Bitset16::new();
+            let mut x_set = Bitset64::new();
             x_set.set(x);
 
             let col_start = coloring.next_color();
@@ -37,7 +37,7 @@ pub fn refine<G: Graph>(graph: &G, mut coloring: G::Coloring, seq: G::Path) -> G
                 .filter(|(_, frag)| !frag.is_empty());
             iter.next();
             for (_, frag) in iter {
-                for u in *frag {
+                for u in frag.iter() {
                     coloring.set(u, col);
                 }
                 cell_set.set(col as usize);

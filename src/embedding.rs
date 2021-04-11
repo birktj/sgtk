@@ -1,5 +1,5 @@
 use crate::seq::{Seq, SmallSeq, SeqPermutations};
-use crate::bitset::{self, Bitset};
+use crate::bitset::{self, Intset, Bitset};
 use crate::graph::{Graph, BitsetGraph};
 
 pub type RotationSystem16 = SmallRotationSystem<bitset::Bitset16, 16>;
@@ -266,7 +266,7 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         Faces {
             embedding: self,
             iter: SmallFacesIter {
-                used: [B::new(); 16],
+                used: [B::new(); N],
                 visited: B::new(),
             },
         }
@@ -319,7 +319,7 @@ impl<B: Bitset + std::fmt::Debug, const N: usize> std::fmt::Debug for SmallRotat
 }
 
 pub struct SmallFacesIter<B, const N: usize> {
-    used: [B; 16],
+    used: [B; N],
     visited: B,
 }
 

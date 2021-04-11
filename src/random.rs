@@ -9,6 +9,7 @@ pub fn graph<G: Graph>(n: usize) -> G {
     }
 
     let edge_ratio = rand::thread_rng().gen_range(0.0..=1.0);
+    //let edge_ratio = rand::thread_rng().gen_range(0.7..0.9);
     let edge_count = ((n*(n+1) / 2) as f32 * edge_ratio) as usize;
 
     for _ in 0..edge_count {

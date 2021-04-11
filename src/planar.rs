@@ -1,7 +1,7 @@
 use crate::graph::Graph;
 use crate::map::Map64;
 use crate::embedding::*;
-use crate::bitset::{Bitset, Bitset64};
+use crate::bitset::{Intset, Bitset, Bitset64};
 
 #[inline(always)]
 fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<Item = G> {

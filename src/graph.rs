@@ -1,5 +1,5 @@
 use std::hash::Hash;
-use crate::bitset::{self, Bitset};
+use crate::bitset::{self, Intset, Bitset};
 use crate::seq::{self, Seq};
 use crate::permutation::{Permutation, SmallPerm};
 use crate::embedding::{RotationSystem, SmallRotationSystem};

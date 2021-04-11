@@ -1,5 +1,5 @@
 use crate::seq::{Seq, Seq16, SeqPermutations};
-use crate::bitset::{Bitset, Bitset16};
+use crate::bitset::{Intset, Bitset, Bitset16};
 use crate::graph::{Graph, Graph16};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

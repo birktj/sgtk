@@ -1,24 +1,32 @@
 use crate::seq::*;
 use crate::permutation::{Permutation, SmallPerm};
 
-pub trait Bitset: Eq + Clone {
-    const SIZE: usize;
-
-    type Enumerate: Iterator<Item = Self>;
-    type Iter: Iterator<Item = usize> + DoubleEndedIterator + Clone;
-    type Perm: Permutation;
-
+pub trait Intset {
     fn new() -> Self;
 
     fn is_empty(&self) -> bool;
 
     fn get(&self, i: usize) -> bool;
 
-    fn set(&mut self, i: usize);
-
     fn set_val(&mut self, i: usize, v: bool);
 
-    fn clear(&mut self, i: usize);
+    fn set(&mut self, i: usize) {
+        self.set_val(i, true);
+    }
+
+    fn clear(&mut self, i: usize) {
+        self.set_val(i, false);
+    }
+
+    fn count(&self) -> usize;
+}
+
+pub trait Bitset: Intset + Eq + Clone {
+    const SIZE: usize;
+
+    type Enumerate: Iterator<Item = Self>;
+    type Iter: Iterator<Item = usize> + DoubleEndedIterator + Clone;
+    type Perm: Permutation;
 
     fn swap(&mut self, i: usize, j: usize);
 
@@ -27,8 +35,6 @@ pub trait Bitset: Eq + Clone {
     fn mask_ge(n: usize) -> Self;
 
     fn smallest(&self) -> Option<usize>;
-
-    fn count(&self) -> usize;
 
     fn union(&self, other: &Self) -> Self;
 
@@ -66,15 +72,7 @@ macro_rules! bit_set {
             }
         }
 
-        impl Bitset for $name {
-            const SIZE: usize = $size;
-
-            type Enumerate = $iter_enum;
-
-            type Perm = SmallPerm<$size>;
-
-            type Iter = $iter;
-
+        impl Intset for $name {
             fn new() -> Self {
                 Self {
                     bitset: 0
@@ -101,6 +99,20 @@ macro_rules! bit_set {
                 self.bitset &= !(1 << i);
             }
 
+            fn count(&self) -> usize {
+                self.bitset.count_ones() as usize
+            }
+        }
+
+        impl Bitset for $name {
+            const SIZE: usize = $size;
+
+            type Enumerate = $iter_enum;
+
+            type Perm = SmallPerm<$size>;
+
+            type Iter = $iter;
+
             fn swap(&mut self, i: usize, j: usize) {
                 let vi = (self.bitset >> i) & 1;
                 let vj = (self.bitset >> j) & 1;
@@ -119,10 +131,6 @@ macro_rules! bit_set {
 
             fn smallest(&self) -> Option<usize> {
                 (*self).into_iter().next()
-            }
-
-            fn count(&self) -> usize {
-                self.bitset.count_ones() as usize
             }
 
             fn union(&self, other: &Self) -> Self {

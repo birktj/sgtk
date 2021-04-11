@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use crate::graph::{Graph, Graph16};
 use crate::permutation::{Permutation, Perm16};
 use crate::seq::{Seq, Seq16};
-use crate::bitset::{Bitset, Bitset16};
+use crate::bitset::{Intset, Bitset, Bitset16};
 use crate::iso::search_tree;
 
 fn check_auto<'a>(n: usize, cut_vert: usize, auto_gens: &'a HashSet<Perm16>) -> impl 'a + Iterator<Item = Perm16> {
