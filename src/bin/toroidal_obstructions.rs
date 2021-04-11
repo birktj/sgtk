@@ -1,4 +1,4 @@
-use sgtk::graph::{minors, Graph64};
+use sgtk::graph::{subgraphs, Graph64};
 use sgtk::prelude::*;
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -6,7 +6,7 @@ use std::io::Write;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "toroidal_obstructions", about = "Tool to search for toroidal obstructions.")]
+#[structopt(name = "random-obstructions", about = "Tool to search for random toroidal obstructions.")]
 struct Opt {
     /// Number of random graphs to test
     #[structopt(short, long, default_value="100")]
@@ -19,10 +19,16 @@ struct Opt {
     output: Option<PathBuf>,
 }
 
-fn find_toroidal_obstruction(graph: Graph64) -> Graph64 {
-    for minor in minors(&graph).filter(|minor| minor.is_connected()) {
+fn find_toroidal_obstruction(mut graph: Graph64) -> Graph64 {
+    for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
         if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)
+        }
+    }
+
+    for u in graph.nodes() {
+        if graph.siblings(u).count() < 3 {
+            graph.contract_edge(graph.siblings(u).smallest().unwrap(), u);
         }
     }
 
@@ -42,7 +48,6 @@ fn main() {
 
     let mut output = opt.output.map(|path| std::fs::File::create(path).unwrap())
         .unwrap_or_else(|| std::fs::File::create("/dev/stdout").unwrap());
-
 
     let mut stats = Stats {
         num_toroidal: 0,
@@ -80,4 +85,8 @@ fn main() {
     for (i, n) in &stats.count_sizes {
         eprintln!("{} obstructions with {} nodes", n, i);
     }
+
+    let graphs: Vec<_> = stats.obstructions.into_iter().map(|(k, _)| k).collect();
+
+    sgtk::viz::render_dot("test.pdf", &graphs);
 }
