@@ -2,6 +2,8 @@ use crate::seq::*;
 use crate::permutation::{Permutation, SmallPerm};
 
 pub trait Intset {
+    type Iter: Iterator<Item = usize> + DoubleEndedIterator + Clone;
+
     fn new() -> Self;
 
     fn is_empty(&self) -> bool;
@@ -18,14 +20,17 @@ pub trait Intset {
         self.set_val(i, false);
     }
 
+    fn smallest(&self) -> Option<usize>;
+
     fn count(&self) -> usize;
+
+    fn iter(&self) -> Self::Iter;
 }
 
 pub trait Bitset: Intset + Eq + Clone {
     const SIZE: usize;
 
     type Enumerate: Iterator<Item = Self>;
-    type Iter: Iterator<Item = usize> + DoubleEndedIterator + Clone;
     type Perm: Permutation;
 
     fn swap(&mut self, i: usize, j: usize);
@@ -33,8 +38,6 @@ pub trait Bitset: Intset + Eq + Clone {
     fn mask_le(n: usize) -> Self;
 
     fn mask_ge(n: usize) -> Self;
-
-    fn smallest(&self) -> Option<usize>;
 
     fn union(&self, other: &Self) -> Self;
 
@@ -49,8 +52,6 @@ pub trait Bitset: Intset + Eq + Clone {
     fn enumerate(maxn: usize) -> Self::Enumerate;
 
     fn shuffle(&mut self, permutation: &Self::Perm);
-
-    fn iter(&self) -> Self::Iter;
 }
 
 macro_rules! bit_set {
@@ -73,6 +74,8 @@ macro_rules! bit_set {
         }
 
         impl Intset for $name {
+            type Iter = $iter;
+
             fn new() -> Self {
                 Self {
                     bitset: 0
@@ -99,8 +102,16 @@ macro_rules! bit_set {
                 self.bitset &= !(1 << i);
             }
 
+            fn smallest(&self) -> Option<usize> {
+                (*self).into_iter().next()
+            }
+
             fn count(&self) -> usize {
                 self.bitset.count_ones() as usize
+            }
+
+            fn iter(&self) -> Self::Iter {
+                self.into_iter()
             }
         }
 
@@ -110,8 +121,6 @@ macro_rules! bit_set {
             type Enumerate = $iter_enum;
 
             type Perm = SmallPerm<$size>;
-
-            type Iter = $iter;
 
             fn swap(&mut self, i: usize, j: usize) {
                 let vi = (self.bitset >> i) & 1;
@@ -127,10 +136,6 @@ macro_rules! bit_set {
 
             fn mask_ge(n: usize) -> Self {
                 Self::mask_le(n).invert()
-            }
-
-            fn smallest(&self) -> Option<usize> {
-                (*self).into_iter().next()
             }
 
             fn union(&self, other: &Self) -> Self {
@@ -185,10 +190,6 @@ macro_rules! bit_set {
                         self.set(j);
                     }
                 }
-            }
-
-            fn iter(&self) -> Self::Iter {
-                self.into_iter()
             }
         }
 

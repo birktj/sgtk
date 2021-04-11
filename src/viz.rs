@@ -1,6 +1,5 @@
 use std::process::{Command, Stdio};
-use crate::graph::Graph;
-use crate::bitset::Bitset;
+use crate::prelude::*;
 
 pub struct GraphvizOptions {
     shape: String,

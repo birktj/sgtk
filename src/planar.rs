@@ -1,6 +1,7 @@
 use crate::map::{Map64, FullMapError};
-use crate::prelude::*;
 use crate::bitset::{Bitset64};
+use crate::embedding::Face;
+use crate::prelude::*;
 
 #[inline(always)]
 fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<Item = G> {
@@ -22,9 +23,13 @@ fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<I
 }
 
 pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
-    dmp_inner(graph).unwrap()
+    dmp_inner::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(graph).unwrap()
 }
-fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> {
+fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = G>, FM: Slotmap<Output = Face>>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
+    where for<'a> &'a SM: IntoIterator<Item = (usize, &'a B)>,
+          for<'a> &'a BM: IntoIterator<Item = (usize, &'a G)>,
+          for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
+{
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
 
@@ -40,28 +45,26 @@ fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
     
     let mut embedding = G::Embedding::simple(&h);
 
-    let mut faces = Map64::new();
-    let mut admissible_faces = Map64::new(); //[Bitset16::new(); 16];
-    let mut admissible_bridges = Map64::new(); // [HashSet<usize>; 16] = Default::default();
-    let mut one_admissible = Bitset64::new();
+    let mut faces = FM::new();
+    let mut admissible_faces = SM::new(); //[Bitset16::new(); 16];
+    let mut admissible_bridges = SM::new(); // [HashSet<usize>; 16] = Default::default();
+    let mut one_admissible = B::new();
+    let mut bridges = BM::new();
 
-    let mut bridges = compute_bridges(graph, &h)
-        //.map(|bridge| bridge.nodes())
-       .collect::<Map64<_>>();
-    //let mut bridges = list_bridges(graph, &h);
+    for bridge in compute_bridges(graph, &h) {
+        bridges.push(bridge)?;
+    }
 
-    //dbg!(graph, h, &bridges);
-
-    for (i, _) in bridges.iter() {
-        admissible_faces.insert(i, Bitset64::new())?;
+    for (i, _) in &bridges {
+        admissible_faces.insert(i, B::new())?;
     }
 
     for face in embedding.faces() {
         let face_nodes = embedding.face_nodes(face);
         let i = faces.push(face)?;
-        admissible_bridges.insert(i, Bitset64::new())?;
+        admissible_bridges.insert(i, B::new())?;
 
-        for (j, bridge) in bridges.iter() {
+        for (j, bridge) in &bridges {
             let attachments = h.nodes().intersection(&bridge.nodes());
 
             if face_nodes.is_superset(&attachments) {
@@ -71,7 +74,7 @@ fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
         }
     }
 
-    for (i, _) in bridges.iter() {
+    for (i, _) in &bridges {
         if admissible_faces[i].is_empty() {
             // FIXME: can this happen at this point?
             // A bridge has no addmissible faces, no embedding is possible
@@ -111,7 +114,7 @@ fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
         let old_admissible_faces = admissible_faces.take(i).unwrap();
         //admissible_faces[i] = Bitset16::new();
 
-        for face in old_admissible_faces {
+        for face in old_admissible_faces.iter() {
             admissible_bridges[face].clear(i);
         }
 
@@ -153,9 +156,9 @@ fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
                 let j = bridges.push(new_bridge)?;
                 //dbg!(attachments);
-                admissible_faces.insert(j, Bitset64::new())?;
+                admissible_faces.insert(j, B::new())?;
 
-                for face_j in old_admissible_faces {
+                for face_j in old_admissible_faces.iter() {
                     let face = faces[face_j];
                     //dbg!(face_j);
                     //dbg!(embedding.face_nodes(face));
@@ -226,10 +229,10 @@ fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
             new_faces_idx[0] = faces.push(new_faces[0])?;
             new_faces_idx[1] = faces.push(new_faces[1])?;
             for j in &new_faces_idx {
-                admissible_bridges.insert(*j, Bitset64::new())?;
+                admissible_bridges.insert(*j, B::new())?;
             }
 
-            for bridge in old_admissible_bridges {
+            for bridge in old_admissible_bridges.iter() {
                 admissible_faces[bridge].clear(face_i);
 
                 let attachments = h.nodes().intersection(&bridges[bridge].nodes());
@@ -259,7 +262,7 @@ fn dmp_inner<G: Graph>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
                 let attachments = h.nodes().intersection(&new_bridge.nodes());
                 let j = bridges.push(new_bridge)?;
                 //dbg!(attachments);
-                admissible_faces.insert(j, Bitset64::new())?;
+                admissible_faces.insert(j, B::new())?;
 
                 for face_j in &new_faces_idx {
                     let face = faces[*face_j];

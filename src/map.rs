@@ -1,5 +1,7 @@
 use crate::bitset::{Bitset, Bitset16, Bitset32, Bitset64, Bitset128};
 use std::mem::MaybeUninit;
+use std::ops::Index;
+use std::ops::IndexMut;
 
 pub type Map16<T> = Map<T, Bitset16, 16>;
 pub type Map32<T> = Map<T, Bitset32, 32>;
@@ -9,18 +11,16 @@ pub type Map128<T> = Map<T, Bitset128, 128>;
 #[derive(Debug, Copy, Clone)]
 pub struct FullMapError;
 
-pub trait Slotmap {
-    type Item;
-
+pub trait Slotmap: Index<usize> + IndexMut<usize> where Self::Output: Sized, for<'a> &'a Self: IntoIterator<Item = (usize, &'a Self::Output)> {
     fn new() -> Self;
 
-    fn push(&mut self, val: Self::Item) -> Result<usize, FullMapError>;
+    fn push(&mut self, val: Self::Output) -> Result<usize, FullMapError>;
 
-    fn pop(&mut self) -> Option<(usize, Self::Item)>;
+    fn pop(&mut self) -> Option<(usize, Self::Output)>;
 
-    fn take(&mut self, i: usize) -> Option<Self::Item>;
+    fn take(&mut self, i: usize) -> Option<Self::Output>;
 
-    fn insert(&mut self, i: usize, val: Self::Item) -> Result<(), FullMapError>;
+    fn insert(&mut self, i: usize, val: Self::Output) -> Result<(), FullMapError>;
 
     fn swap(&mut self, i: usize, j: usize);
 
@@ -35,8 +35,6 @@ pub struct Map<T, B: Bitset, const N: usize> {
 }
 
 impl<T, B: Bitset, const N: usize> Slotmap for Map<T, B, N> {
-    type Item = T;
-
     fn new() -> Self {
         let values = unsafe { MaybeUninit::uninit().assume_init() };
         Self {
@@ -67,7 +65,7 @@ impl<T, B: Bitset, const N: usize> Slotmap for Map<T, B, N> {
         }
     }
 
-    fn insert(&mut self, i: usize, val: Self::Item) -> Result<(), FullMapError> {
+    fn insert(&mut self, i: usize, val: T) -> Result<(), FullMapError> {
         if self.occupied.get(i) {
             return Err(FullMapError)
         }
