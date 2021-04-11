@@ -85,8 +85,4 @@ fn main() {
     for (i, n) in &stats.count_sizes {
         eprintln!("{} obstructions with {} nodes", n, i);
     }
-
-    let graphs: Vec<_> = stats.obstructions.into_iter().map(|(k, _)| k).collect();
-
-    sgtk::viz::render_dot("test.pdf", &graphs);
 }

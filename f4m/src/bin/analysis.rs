@@ -88,6 +88,11 @@ impl Stats {
                 eprintln!("{:>10} {:>10} {:>10}", v, fc, uc);
             }
         }
+        
+        let fc_tot: usize = self.found_count.iter().sum();
+        let uc_tot: usize = self.unique_count.iter().sum();
+        eprintln!("{:>10} {:>10} {:>10}", "total", fc_tot, uc_tot);
+
         eprintln!("");
     }
 }
@@ -117,7 +122,7 @@ fn main() -> Result<()> {
         bar.finish();
     }
 
-    eprintln!("Loading new obstructions:");
+    eprintln!("Loading found obstructions:");
     let mut new_minors = Stats::new();
     let mut new_obstructions = Stats::new();
     let mut unknown_obstructions = Stats::new();
@@ -126,7 +131,7 @@ fn main() -> Result<()> {
     let num_len = opt.new_obstructions.len().to_string().len();
     for (i, obstr_file) in opt.new_obstructions.iter().enumerate() {
         let file = std::fs::read_to_string(obstr_file)
-            .with_context(|| format!("Failed to read new obstrucions from {:?}", &obstr_file))?;
+            .with_context(|| format!("Failed to read found obstrucions from {:?}", &obstr_file))?;
         let num = file.lines().count();
         let bar = ProgressBar::new(num as u64);
         bar.set_style(progress_style.clone());
@@ -153,9 +158,9 @@ fn main() -> Result<()> {
 
     eprintln!("\n");
 
-    new_obstructions.print("New obstructions");
+    new_obstructions.print("Found obstructions");
     if opt.check_minor {
-        new_minors.print("New minors");
+        new_minors.print("Found minors");
     }
 
     if !unknown_obstructions.graphs.is_empty() {
