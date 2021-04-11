@@ -1,8 +1,8 @@
 use sgtk::graph::{minors, Graph64};
 use sgtk::prelude::*;
 use std::collections::{BTreeMap, HashMap};
-use std::collections::HashSet;
 use std::path::PathBuf;
+use std::io::Write;
 use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
@@ -12,10 +12,10 @@ struct Opt {
     #[structopt(short, long, default_value="100")]
     count: u64,
     /// Size of random graphs
-    #[structopt(short, default_value="50")]
+    #[structopt(short, default_value="63")]
     n: usize,
     /// Output file
-    #[structopt(parse(from_os_str))]
+    #[structopt(short, long, parse(from_os_str))]
     output: Option<PathBuf>,
 }
 
@@ -40,8 +40,9 @@ struct Stats {
 fn main() {
     let opt = Opt::from_args();
 
-    let mut output = opt.output.map(|path| std::fs::File::open(path).unwrap())
-        .unwrap_or_else(|| std::fs::File::open("/dev/stdout").unwrap());
+    let mut output = opt.output.map(|path| std::fs::File::create(path).unwrap())
+        .unwrap_or_else(|| std::fs::File::create("/dev/stdout").unwrap());
+
 
     let mut stats = Stats {
         num_toroidal: 0,
@@ -63,10 +64,12 @@ fn main() {
             let obstruction = find_toroidal_obstruction(graph);
             *stats.count_sizes.entry(obstruction.nodes().count()).or_insert(0) += 1;
             *stats.obstructions.entry(obstruction).or_insert(0) += 1;
+            write!(output, "{}\n", sgtk::parse::to_graph6(&obstruction)).unwrap();
         } else {
             stats.num_toroidal += 1;
         }
     }
+    output.flush().unwrap();
 
     eprintln!("{} random graphs tested", opt.count);
     eprintln!("{} graphs where discarded, {} disconnected and {} toroidal",

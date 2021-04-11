@@ -1,4 +1,4 @@
-use sgtk::graph::{minors, Graph, Graph16, Graph64};
+use sgtk::graph::{minors, Graph, Graph64};
 use std::collections::HashSet;
 
 fn find_planar_obstruction(graph: Graph64) -> Graph64 {
