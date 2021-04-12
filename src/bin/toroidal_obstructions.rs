@@ -19,9 +19,7 @@ struct Opt {
     output: Option<PathBuf>,
 }
 
-fn find_toroidal_obstruction<G: Graph>(mut graph: G) -> Graph64
-    where G: Ord + std::fmt::Debug, G::Perm: Eq, G::Perm: std::hash::Hash, G::Path: Eq, G::Path: std::hash::Hash
-{
+fn find_toroidal_obstruction<G: Graph + Ord>(mut graph: G) -> Graph64 {
     if G::MAXN > 16 {
         let node_count = graph.nodes().count();
         if node_count < 16 {

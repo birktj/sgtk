@@ -1,6 +1,6 @@
 pub type Seq16 = SmallSeq<16>;
 
-pub trait Seq: Clone {
+pub trait Seq: Clone + Eq + std::hash::Hash {
     type IterPerm: Iterator<Item = Self>;
 
     fn new() -> Self;

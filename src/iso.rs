@@ -53,10 +53,7 @@ pub struct SearchResults<G: Graph> {
     pub canonical_graph: G,
 }
 
-pub fn search_tree<G: Graph + Ord>(graph: G) -> SearchResults<G>
-    where G::Perm: Eq + Hash,
-          G::Path: Eq + Hash
-{
+pub fn search_tree<G: Graph + Ord>(graph: G) -> SearchResults<G> {
     let mut coloring = G::Coloring::new();
 
     for u in graph.nodes().iter() {
@@ -84,10 +81,7 @@ pub struct SearchTree<G: Graph> {
     pub auto_prune: bool,
 }
 
-impl<G: Graph + Ord> SearchTree<G>
-    where G::Perm: Eq + Hash,
-          G::Path: Eq + Hash
-{
+impl<G: Graph + Ord> SearchTree<G> {
     pub fn new(graph: G) -> SearchTree<G> {
         SearchTree {
             graph,
