@@ -103,6 +103,35 @@ pub trait Graph: Sized + Clone {
         */
     }
 
+    fn trim(&mut self) {
+        let mut i = 0;
+        for u in self.nodes().iter() {
+            if u <= i {
+                i += 1;
+                continue
+            }
+            while self.has_node(i) {
+                i += 1;
+            }
+            let u_edges = self.siblings(u);
+            self.del_node(u);
+            self.add_node(i);
+            self.add_edges(i, &u_edges);
+            i += 1;
+        }
+    }
+
+    fn convert<G: Graph>(&self) -> G {
+        let mut graph = G::empty();
+        for u in self.nodes().iter() {
+            graph.add_node(u);
+        }
+        for (u, v) in self.edges() {
+            graph.add_edge(u, v);
+        }
+        graph
+    }
+
     fn shuffle(&mut self, permutation: &Self::Perm);
 
     fn nodes(&self) -> Self::Set;

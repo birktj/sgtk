@@ -1,4 +1,4 @@
-use sgtk::graph::{subgraphs, Graph64};
+use sgtk::graph::{subgraphs, Graph16, Graph32, Graph64};
 use sgtk::prelude::*;
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
@@ -19,20 +19,32 @@ struct Opt {
     output: Option<PathBuf>,
 }
 
-fn find_toroidal_obstruction(mut graph: Graph64) -> Graph64 {
+fn find_toroidal_obstruction<G: Graph>(mut graph: G) -> Graph64
+    where G: Ord + std::fmt::Debug, G::Perm: Eq, G::Perm: std::hash::Hash, G::Path: Eq, G::Path: std::hash::Hash
+{
+    if G::MAXN > 16 {
+        let node_count = graph.nodes().count();
+        if node_count < 16 {
+            graph.trim();
+            return find_toroidal_obstruction::<Graph16>(graph.convert())
+        } else if G::MAXN > 32 && node_count < 32 {
+            graph.trim();
+            return find_toroidal_obstruction::<Graph32>(graph.convert())
+        }
+    }
     for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
         if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)
         }
     }
 
-    for u in graph.nodes() {
+    for u in graph.nodes().iter() {
         if graph.siblings(u).count() < 3 {
             graph.contract_edge(graph.siblings(u).smallest().unwrap(), u);
         }
     }
 
-    graph.to_canonical()
+    graph.to_canonical().convert()
 }
 
 struct Stats {
