@@ -409,10 +409,12 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         }
     }
 
+    #[inline]
     fn add_node(&mut self, u: usize) {
         self.g[u].set(u);
     }
 
+    #[inline]
     fn del_node(&mut self, u: usize) {
         self.g[u] = B::new();
         for i in 0..N {
@@ -420,10 +422,12 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         }
     }
 
+    #[inline]
     fn has_node(&self, u: usize) -> bool {
         self.g[u].get(u)
     }
 
+    #[inline]
     fn nodes(&self) -> Self::Set {
         let mut res = B::new();
         for i in 0..N {
@@ -432,6 +436,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         res
     }
 
+    #[inline]
     fn add_edge(&mut self, u: usize, v: usize) {
         debug_assert!(self.has_node(u));
         debug_assert!(self.has_node(v));
@@ -439,6 +444,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         self.g[v].set(u);
     }
 
+    #[inline]
     fn add_edges(&mut self, u: usize, edges: &Self::Set) {
         self.g[u] = self.g[u].union(edges);
         for v in edges.iter() {
@@ -446,11 +452,13 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         }
     }
 
+    #[inline]
     fn del_edge(&mut self, u: usize, v: usize) {
         self.g[u].clear(v);
         self.g[v].clear(u);
     }
 
+    #[inline]
     fn del_edges(&mut self, u: usize, edges: &Self::Set) {
         self.g[u] = self.g[u].intersection(&edges.invert());
         for v in edges.iter() {
@@ -458,16 +466,19 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         }
     }
 
+    #[inline]
     fn has_edge(&self, u: usize, v: usize) -> bool {
         self.g[u].get(v)
     }
 
+    #[inline]
     fn siblings(&self, u: usize) -> Self::Set {
         let mut res = self.g[u];
         res.clear(u);
         res
     }
 
+    #[inline]
     fn shuffle(&mut self, permutation: &Self::Perm) {
         let old = self.g;
 
@@ -479,6 +490,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
     }
 
 
+    #[inline]
     fn subgraph(&self, selected: &Self::Set) -> Self {
         let mut new = Self::empty();
         for i in selected.iter() {
@@ -487,12 +499,14 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         new
     }
 
+    #[inline]
     fn union(&mut self, other: &Self) {
         for i in 0..N {
             self.g[i] = self.g[i].union(&other.g[i]);
         }
     }
 
+    #[inline]
     fn difference(&mut self, other: &Self) {
         for i in 0..N {
             self.g[i] = self.g[i].difference(&other.g[i]);
@@ -500,6 +514,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         }
     }
 
+    #[inline]
     fn bipartite_split(&self, a: &Self::Set, b: &Self::Set) -> Self {
         let mut new = Self::empty();
         for i in a.iter() {

@@ -10,10 +10,12 @@ pub trait Intset {
 
     fn set_val(&mut self, i: usize, v: bool);
 
+    #[inline]
     fn set(&mut self, i: usize) {
         self.set_val(i, true);
     }
 
+    #[inline]
     fn clear(&mut self, i: usize) {
         self.set_val(i, false);
     }
@@ -79,30 +81,37 @@ macro_rules! bit_set {
                 }
             }
 
+            #[inline]
             fn is_empty(&self) -> bool {
                 self.bitset == 0
             }
 
+            #[inline]
             fn get(&self, i: usize) -> bool {
                 (self.bitset & (1 << i)) > 0
             }
 
+            #[inline]
             fn set(&mut self, i: usize) {
                 self.bitset |= 1 << i;
             }
 
+            #[inline]
             fn set_val(&mut self, i: usize, v: bool) {
                 self.bitset |= if v { 1 << i } else { 0 };
             }
 
+            #[inline]
             fn clear(&mut self, i: usize) {
                 self.bitset &= !(1 << i);
             }
 
+            #[inline]
             fn smallest(&self) -> Option<usize> {
                 (*self).into_iter().next()
             }
 
+            #[inline]
             fn count(&self) -> usize {
                 self.bitset.count_ones() as usize
             }
@@ -117,50 +126,59 @@ macro_rules! bit_set {
 
             type Perm = SmallPerm<$size>;
 
+            #[inline]
             fn swap(&mut self, i: usize, j: usize) {
                 let vi = (self.bitset >> i) & 1;
                 let vj = (self.bitset >> j) & 1;
                 self.bitset = (self.bitset & !((1 << i) | (1 << j))) | (vi << i) | (vj << j);
             }
 
+            #[inline]
             fn mask_le(n: usize) -> Self {
                 Self {
                     bitset: (1 as $type << n).wrapping_sub(1),
                 }
             }
 
+            #[inline]
             fn mask_ge(n: usize) -> Self {
                 Self::mask_le(n).invert()
             }
 
+            #[inline]
             fn union(&self, other: &Self) -> Self {
                 Self {
                     bitset: self.bitset | other.bitset
                 }
             }
 
+            #[inline]
             fn intersection(&self, other: &Self) -> Self {
                 Self {
                     bitset: self.bitset & other.bitset
                 }
             }
 
+            #[inline]
             fn difference(&self, other: &Self) -> Self {
                 Self {
                     bitset: self.bitset & !other.bitset
                 }
             }
 
+            #[inline]
             fn invert(&self) -> Self {
                 Self {
                     bitset: !self.bitset
                 }
             }
 
+            #[inline]
             fn is_superset(&self, other: &Self) -> bool {
                 (self.bitset & other.bitset) == other.bitset
             }
 
+            #[inline]
             fn enumerate(maxn: usize) -> $iter_enum {
                 let maxval = if maxn == $size {
                     <$type>::MAX
@@ -176,6 +194,7 @@ macro_rules! bit_set {
                 }
             }
 
+            #[inline]
             fn shuffle(&mut self, permutation: &Self::Perm) {
                 let old = *self;
                 self.bitset = 0;
@@ -187,6 +206,7 @@ macro_rules! bit_set {
                 }
             }
 
+            #[inline]
             fn iter(&self) -> Self::Iter {
                 self.into_iter()
             }
@@ -196,6 +216,7 @@ macro_rules! bit_set {
             type Item = usize;
             type IntoIter = $iter;
 
+            #[inline]
             fn into_iter(self) -> $iter {
                 $iter {
                     bitset: self.bitset,
@@ -207,6 +228,7 @@ macro_rules! bit_set {
             type Item = usize;
             type IntoIter = $iter;
 
+            #[inline]
             fn into_iter(self) -> $iter {
                 $iter {
                     bitset: self.bitset,
@@ -222,6 +244,7 @@ macro_rules! bit_set {
         impl Iterator for $iter {
             type Item = usize;
 
+            #[inline]
             fn next(&mut self) -> Option<usize> {
                 if self.bitset != 0 {
                     let i = self.bitset.trailing_zeros() as usize;
@@ -234,6 +257,7 @@ macro_rules! bit_set {
         }
 
         impl std::iter::DoubleEndedIterator for $iter {
+            #[inline]
             fn next_back(&mut self) -> Option<usize> {
                 if self.bitset != 0 {
                     let i = $size - 1 - self.bitset.leading_zeros() as usize;
@@ -261,6 +285,7 @@ macro_rules! bit_set {
         impl Iterator for $iter_enum {
             type Item = $name;
 
+            #[inline]
             fn next(&mut self) -> Option<$name> {
                 if self.finished {
                     return self.last.take()

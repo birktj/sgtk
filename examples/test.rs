@@ -13,7 +13,16 @@ fn main() {
             k33.add_edge(i, j);
         }
     }
+
+    let k5 = Graph16::complete(5);
+
+    let mut graph_searcher = sgtk::graph_searcher::SubGraphSearcher::new(13);
+    graph_searcher.insert_graph(k5);
+
+    dbg!(graph_searcher.contains_subgraph(&k5));
+    //dbg!(graph_searcher);
     
+    /*
     //dbg!(k33.nodes());
     //dbg!(&k33);
     let canon = k33.clone().to_canonical();
@@ -38,6 +47,7 @@ fn main() {
     viz::render_dot("test.pdf", &[k33, canon]);
 
     return;
+
 
     /*
     for n in 1..16 {
@@ -370,6 +380,7 @@ fn main() {
         minor.print_dot();
         println!("");
     }
+    */
     */
     */
 }

@@ -131,6 +131,7 @@ pub struct FaceIter<'a, G: Graph, R: RotationSystem<G>> {
 impl<'a, G: Graph, R: RotationSystem<G>> Iterator for FaceIter<'a, G, R> {
     type Item = (usize, usize);
 
+    #[inline]
     fn next(&mut self) -> Option<(usize, usize)> {
         if self.finished {
             return None
@@ -161,6 +162,7 @@ pub trait FacesIter<G: Graph, R: RotationSystem<G>> {
 impl<'a, G: Graph, R: RotationSystem<G>> Iterator for Faces<'a, G, R> {
     type Item = Face;
 
+    #[inline]
     fn next(&mut self) -> Option<Face> {
         self.iter.next_face(self.embedding)
     }
@@ -272,14 +274,17 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         }
     }
 
+    #[inline]
     fn after(&self, u: usize, v: usize) -> usize {
         usize::from(self.order[u][v])
     }
 
+    #[inline]
     fn before(&self, u: usize, v: usize) -> usize {
         usize::from(self.order_inv[u][v])
     }
 
+    #[inline]
     fn insert_edge(&mut self, node: usize, after: usize, dest: usize) {
         self.nodes.set(dest);
         self.edges[node].set(dest);
@@ -290,6 +295,7 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         self.order[node][after] = dest as u8;
     }
 
+    #[inline]
     fn insert_edge_any(&mut self, node: usize, dest: usize) {
         if let Some(i) = self.edges[node].smallest() {
             self.insert_edge(node, i, dest);
@@ -298,6 +304,7 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         }
     }
 
+    #[inline]
     fn remove_edge_dir(&mut self, u: usize, v: usize) {
         self.edges[u].clear(v);
         if self.edges[u].is_empty() {
@@ -324,6 +331,7 @@ pub struct SmallFacesIter<B, const N: usize> {
 }
 
 impl<B: Bitset + Copy, const N: usize> FacesIter<BitsetGraph<B, N>, SmallRotationSystem<B, N>> for SmallFacesIter<B, N> {
+    #[inline]
     fn next_face(&mut self, embedding: &SmallRotationSystem<B, N>) -> Option<Face> {
         while let Some(u) = embedding.nodes.intersection(&self.visited.invert()).smallest() {
             if let Some(v) = embedding.edges[u]
@@ -349,6 +357,7 @@ pub struct SmallRotationSystemEnumerate<B, const N: usize> {
 }
 
 impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
+    #[inline]
     fn new_perm(&mut self, i: usize) {
         let mut seq: SmallSeq<N> = SmallSeq::new();
         for j in self.curr.edges[i].iter().skip(1) {
@@ -357,6 +366,7 @@ impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
         self.permutations[i] = seq.permutations();
     }
 
+    #[inline]
     fn next_perm(&mut self, i: usize) -> bool {
         if let Some(new) = self.permutations[i].next() {
             let j0 = self.curr.edges[i].smallest().unwrap();
@@ -374,6 +384,7 @@ impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
         }
     }
 
+    #[inline]
     fn flip_perm(&self) -> bool {
         if let Some(i) = self.flip_node {
             let j = self.curr.edges[i].smallest().unwrap();
@@ -387,6 +398,7 @@ impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
 impl<B: Bitset, const N: usize> Iterator for SmallRotationSystemEnumerate<B, N> {
     type Item = SmallRotationSystem<B, N>;
 
+    #[inline]
     fn next(&mut self) -> Option<SmallRotationSystem<B, N>> {
         for i in self.curr.nodes.iter().rev() {
             while self.next_perm(i) {

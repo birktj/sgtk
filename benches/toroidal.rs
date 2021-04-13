@@ -9,7 +9,8 @@ pub fn benchmark(c: &mut Criterion) {
         sgtk::toroidal::find_embedding(&black_box(Graph16::complete(7))).is_some()
     }));
 
-    let obstruction = sgtk::parse::from_upper_tri("9 111000011100001100001000011111111111")
+    let obstruction: Graph16 = 
+        sgtk::parse::from_upper_tri("9 111000011100001100001000011111111111")
         .unwrap();
     c.bench_function("toroidal_obstruction", |b| b.iter(|| {
         sgtk::toroidal::find_embedding(&black_box(obstruction)).is_some()
@@ -17,7 +18,7 @@ pub fn benchmark(c: &mut Criterion) {
     c.bench_function("toroidal_obstruction_check_minors", |b| b.iter(|| {
         minors(&black_box(obstruction))
             .filter(|minor| minor.is_connected())
-            .filter(|minor| sgtk::toroidal::find_embedding(&minor).is_some())
+            .filter(|minor| sgtk::toroidal::find_embedding(minor).is_some())
             .count()
     }));
 }

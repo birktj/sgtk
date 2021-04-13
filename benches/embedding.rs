@@ -2,7 +2,8 @@
 extern crate criterion;
 
 use criterion::{black_box, Criterion};
-use sgtk::graph::{Graph, Graph16};
+use sgtk::prelude::*;
+use sgtk::graph::Graph16;
 use sgtk::embedding::RotationSystem16;
 
 pub fn benchmark(c: &mut Criterion) {

@@ -27,6 +27,17 @@ pub trait Permutation: Clone + Eq + std::hash::Hash {
     fn chain(&self, other: &Self) -> Self where Self: Sized {
         Self::from_iter(self.iter().map(|(i, j)| (i, other.get(j)))).unwrap()
     }
+
+    fn generating_set(n: usize) -> Vec<Self> {
+        let mut res = Vec::new();
+
+        for i in 0..n-1 {
+            let mut perm = Self::new();
+            perm.swap(i, i+1);
+            res.push(perm);
+        }
+        res
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
