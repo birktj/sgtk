@@ -77,18 +77,18 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     }
 
     for embedding in G::Embedding::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
-        if let Ok(res) = search_embedding::<G, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), graph, &bridges) {
+        if let Ok(res) = search_embedding::<G, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
             if let Some(embedding) = res {
                 return Some(embedding)
             }
-        } else if let Some(embedding) = search_embedding::<G, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, graph, &bridges).unwrap() {
+        } else if let Some(embedding) = search_embedding::<G, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, &bridges).unwrap() {
             return Some(embedding)
         }
     }
     None
 }
 
-fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, graph: &G, bridges: &[G]) -> Result<Option<G::Embedding>, FullMapError>
+fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, bridges: &[G]) -> Result<Option<G::Embedding>, FullMapError>
     where SM: Slotmap,
           SM::Output: Intset + Sized,
           BM: Slotmap<Output = G>,
@@ -98,7 +98,7 @@ fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, graph: &G, br
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
           for<'a> &'a SM::Output: IntoIterator<Item = usize>,
 {
-    if let Some(mut searcher) = TorusSearcher::<G, SM, BM, FM>::new(embedding, graph, bridges)? {
+    if let Some(mut searcher) = TorusSearcher::<G, SM, BM, FM>::new(embedding, bridges)? {
         if searcher.search()? {
             Ok(Some(searcher.embedding))
         } else {
@@ -128,7 +128,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
           for<'a> &'a SM::Output: IntoIterator<Item = usize>,
 {
-    fn new(embedding: G::Embedding, graph: &G, bridges_list: &[G]) -> Result<Option<Self>, FullMapError> {
+    fn new(embedding: G::Embedding, bridges_list: &[G]) -> Result<Option<Self>, FullMapError> {
         let h = embedding.to_graph();
         let mut faces = FM::new();
         for face in embedding.faces() {
