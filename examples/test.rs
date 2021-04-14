@@ -16,6 +16,15 @@ fn main() {
 
     let k5 = Graph16::complete(5);
 
+    let graph: Graph16 = sgtk::parse::from_graph6("GF~~~{");
+
+    for minor in minors(&graph) {
+        let embedding = toroidal::find_embedding(&minor);
+        if embedding.is_none() {
+            dbg!(minor);
+        }
+    }
+
     //dbg!(graph_searcher);
     
     /*

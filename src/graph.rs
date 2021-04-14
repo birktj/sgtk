@@ -64,6 +64,8 @@ pub trait Graph: Sized + Clone {
 
     fn del_node(&mut self, u: usize);
 
+    fn del_nodes(&mut self, nodes: &Self::Set);
+
     fn has_node(&self, u: usize) -> bool;
 
     fn add_edge(&mut self, u: usize, v: usize);
@@ -81,6 +83,18 @@ pub trait Graph: Sized + Clone {
     fn contract_edge(&mut self, u: usize, v: usize) {
         self.add_edges(u, &self.siblings(v));
         self.del_node(v);
+    }
+
+    fn merge_nodes(&mut self, nodes: &Self::Set) {
+        let mut edges = Self::Set::new();
+        for i in nodes.iter() {
+            edges = edges.union(&self.siblings(i));
+        }
+        self.del_nodes(nodes);
+        if let Some(u) = nodes.smallest() {
+            self.add_node(u);
+            self.add_edges(u, &edges);
+        }
     }
 
     fn swap_nodes(&mut self, u: usize, v: usize) {
@@ -431,6 +445,17 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         self.g[u] = B::new();
         for i in 0..N {
             self.g[i].clear(u);
+        }
+    }
+
+    #[inline]
+    fn del_nodes(&mut self, nodes: &Self::Set) {
+        for u in nodes.iter() {
+            self.g[u] = B::new();
+        }
+        let inv = nodes.invert();
+        for i in 0..N {
+            self.g[i] = self.g[i].intersection(&inv);
         }
     }
 

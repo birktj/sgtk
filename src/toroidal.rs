@@ -65,14 +65,23 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     let h = find_kuratowski(graph.to_owned());
     let mut bridges = Vec::new();
 
-    for mut bridge in compute_bridges(graph, &h) {
-        bridges.push(bridge.clone());
+    for bridge in compute_bridges(graph, &h) {
         let attachments = h.nodes().intersection(&bridge.nodes());
-        let u = bridge.nodes().invert().smallest().unwrap();
-        bridge.add_node(u);
-        bridge.add_edges(u, &attachments);
-        if dmp_wrapper(&bridge).is_none() {
+        let mut new_bridge = bridge.clone();
+        new_bridge.merge_nodes(&attachments);
+        if dmp_wrapper(&new_bridge).is_none() {
             return None
+        }
+        if attachments.count() <= 3 && bridge.nodes().count() > attachments.count() {
+            let mut new_bridge = G::empty();
+            for u in attachments.iter() {
+                new_bridge.add_node(u);
+            }
+            let u = bridge.nodes().intersection(&attachments.invert()).smallest().unwrap();
+            new_bridge.add_edges(u, &attachments);
+            bridges.push(new_bridge);
+        } else {
+            bridges.push(bridge);
         }
     }
 
