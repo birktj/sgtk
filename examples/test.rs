@@ -16,10 +16,6 @@ fn main() {
 
     let k5 = Graph16::complete(5);
 
-    let mut graph_searcher = sgtk::graph_searcher::SubGraphSearcher::new(13);
-    graph_searcher.insert_graph(k5);
-
-    dbg!(graph_searcher.contains_subgraph(&k5));
     //dbg!(graph_searcher);
     
     /*

@@ -158,6 +158,8 @@ pub trait Graph: Sized + Clone {
 
     fn subgraph(&self, selected: &Self::Set) -> Self;
 
+    fn is_supergraph(&self, other: &Self) -> bool;
+
     fn union(&mut self, other: &Self);
 
     fn difference(&mut self, other: &Self);
@@ -395,6 +397,16 @@ pub struct BitsetGraph<B, const N: usize> {
     g: [B; N],
 }
 
+impl<B: Bitset + Copy, const N: usize> BitsetGraph<B, N> {
+    pub fn from_raw(raw: &[B]) -> Self {
+        let mut graph = Self::empty();
+        for (i, u) in raw.iter().enumerate() {
+            graph.g[i] = *u;
+        }
+        graph
+    }
+}
+
 impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
     const MAXN: usize = N;
     type Perm = B::Perm;
@@ -497,6 +509,15 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
             new.g[i] = self.g[i].intersection(selected);
         }
         new
+    }
+
+    #[inline]
+    fn is_supergraph(&self, other: &Self) -> bool {
+        let mut res = true;
+        for i in 0..N {
+            res = res && self.g[i].is_superset(&other.g[i]);
+        }
+        res
     }
 
     #[inline]

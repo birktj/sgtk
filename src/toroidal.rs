@@ -10,12 +10,12 @@ pub fn find_kuratowski<G: Graph>(mut graph: G) -> G {
         graph.del_edge(u, v);
         if !graph.is_connected() {
             for component in graph.clone().components() {
-                if planar::fastdmp(&component).is_none() {
+                if dmp_wrapper2(&component).is_none() {
                     graph = component;
                     break;
                 }
             }
-        } else if planar::fastdmp(&graph).is_some() {
+        } else if dmp_wrapper2(&graph).is_some() {
             graph.add_edge(u, v);
         }
     }
@@ -40,6 +40,16 @@ pub fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterat
         }))
 }
 
+#[inline(never)]
+fn dmp_wrapper<G: Graph>(graph: &G) -> Option<G::Embedding> {
+    planar::fastdmp(graph)
+}
+
+#[inline(never)]
+fn dmp_wrapper2<G: Graph>(graph: &G) -> Option<G::Embedding> {
+    planar::fastdmp(graph)
+}
+
 pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
@@ -48,36 +58,37 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
         return None
     }
 
-    if let Some(embedding) = planar::fastdmp(graph) {
+    if let Some(embedding) = dmp_wrapper(graph) {
         return Some(embedding)
     }
 
     let h = find_kuratowski(graph.to_owned());
+    let mut bridges = Vec::new();
 
-    for mut bridge in graph.subgraph(&h.nodes().invert()).components() {
-        let attachments = graph.neighbouring(&h.nodes())
-            .nodes().intersection(&bridge.nodes());
+    for mut bridge in compute_bridges(graph, &h) {
+        bridges.push(bridge.clone());
+        let attachments = h.nodes().intersection(&bridge.nodes());
         let u = bridge.nodes().invert().smallest().unwrap();
         bridge.add_node(u);
         bridge.add_edges(u, &attachments);
-        if planar::fastdmp(&bridge).is_none() {
+        if dmp_wrapper(&bridge).is_none() {
             return None
         }
     }
 
     for embedding in G::Embedding::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
-        if let Ok(res) = search_embedding::<G, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), graph) {
+        if let Ok(res) = search_embedding::<G, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), graph, &bridges) {
             if let Some(embedding) = res {
                 return Some(embedding)
             }
-        } else if let Some(embedding) = search_embedding::<G, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, graph).unwrap() {
+        } else if let Some(embedding) = search_embedding::<G, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, graph, &bridges).unwrap() {
             return Some(embedding)
         }
     }
     None
 }
 
-fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, graph: &G) -> Result<Option<G::Embedding>, FullMapError>
+fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, graph: &G, bridges: &[G]) -> Result<Option<G::Embedding>, FullMapError>
     where SM: Slotmap,
           SM::Output: Intset + Sized,
           BM: Slotmap<Output = G>,
@@ -87,7 +98,7 @@ fn search_embedding<G: Graph, SM, BM, FM>(embedding: G::Embedding, graph: &G) ->
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
           for<'a> &'a SM::Output: IntoIterator<Item = usize>,
 {
-    if let Some(mut searcher) = TorusSearcher::<G, SM, BM, FM>::new(embedding, graph)? {
+    if let Some(mut searcher) = TorusSearcher::<G, SM, BM, FM>::new(embedding, graph, bridges)? {
         if searcher.search()? {
             Ok(Some(searcher.embedding))
         } else {
@@ -117,15 +128,15 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
           for<'a> &'a SM::Output: IntoIterator<Item = usize>,
 {
-    fn new(embedding: G::Embedding, graph: &G) -> Result<Option<Self>, FullMapError> {
+    fn new(embedding: G::Embedding, graph: &G, bridges_list: &[G]) -> Result<Option<Self>, FullMapError> {
         let h = embedding.to_graph();
         let mut faces = FM::new();
         for face in embedding.faces() {
             faces.push(face)?;
         }
         let mut bridges = BM::new();
-        for bridge in compute_bridges(graph, &h) {
-            bridges.push(bridge)?;
+        for bridge in bridges_list {
+            bridges.push(bridge.to_owned())?;
         }
 
         //dbg!(&bridges);

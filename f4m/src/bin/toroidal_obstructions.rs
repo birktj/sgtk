@@ -30,6 +30,7 @@ fn find_toroidal_obstruction<G: Graph + Ord>(mut graph: G) -> Graph64 {
             return find_toroidal_obstruction::<Graph32>(graph.convert())
         }
     }
+    
     for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
         if sgtk::toroidal::find_embedding(&minor).is_none() {
             return find_toroidal_obstruction(minor)

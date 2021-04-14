@@ -4,20 +4,19 @@ use crate::embedding::Face;
 use crate::prelude::*;
 
 #[inline(always)]
-fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<Item = G> {
-    graph.edges_from_to(h.nodes(), h.nodes()).filter(move |(u, v)| {
+fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G, h_nodes: &'a G::Set) -> impl 'a + Iterator<Item = G> {
+    graph.edges_from_to(h_nodes.clone(), h_nodes.clone()).filter(move |(u, v)| {
         !h.has_edge(*u, *v)
     })
-    //graph.difference(h).subgraph(h.nodes()).edges()
     .map(|(u, v)| {
         let mut g = G::empty();
         g.add_node(u);
         g.add_node(v);
         g.add_edge(u, v);
         g
-    }).chain(graph.subgraph(&h.nodes().invert()).components()
+    }).chain(graph.subgraph(&h_nodes.invert()).components()
         .map(move |mut c| {
-            c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h.nodes()));
+            c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h_nodes));
             c
         }))
 }
@@ -47,16 +46,17 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
         // No cycle, graph must be a tree. Any embedding should be valid
         return Ok(Some(G::Embedding::simple(graph)))
     };
+    let mut h_nodes = h.nodes();
     
     let mut embedding = G::Embedding::simple(&h);
 
-    let mut faces = FM::new();
-    let mut admissible_faces = SM::new(); //[Bitset16::new(); 16];
-    let mut admissible_bridges = SM::new(); // [HashSet<usize>; 16] = Default::default();
-    let mut one_admissible = B::new();
-    let mut bridges = BM::new();
+    let mut faces              = FM::new();
+    let mut admissible_faces   = SM::new();
+    let mut admissible_bridges = SM::new();
+    let mut one_admissible     = B::new();
+    let mut bridges            = BM::new();
 
-    for bridge in compute_bridges(graph, &h) {
+    for bridge in compute_bridges(graph, &h, &h_nodes) {
         bridges.push(bridge)?;
     }
 
@@ -90,13 +90,6 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
     }
 
     loop {
-        //dbg!(&embedding);
-        //dbg!(&bridges);
-        //dbg!(&faces);
-        //dbg!(&admissible_faces);
-        //dbg!(&one_admissible);
-        //dbg!(embedding.faces().map(|face| (face, embedding.face_nodes(face))).collect::<Vec<_>>());
-        //dbg!(&admissible_bridges);
         let (i, bridge) = if let Some(i) = one_admissible.smallest() {
             one_admissible.clear(i);
             (i, bridges.take(i).unwrap())
@@ -107,24 +100,13 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
         };
 
         let bridge_nodes = bridge.nodes();
-        let mut attachments = bridge_nodes.intersection(&h.nodes());
-
-        /*
-        let mut bridge = graph.subgraph(bridge_nodes);
-        for u in attachments {
-            bridge = bridge.del_edges(u, h.siblings(u));
-        }
-        */
+        let mut attachments = bridge_nodes.intersection(&h_nodes);
 
         let old_admissible_faces = admissible_faces.take(i).unwrap();
-        //admissible_faces[i] = Bitset16::new();
 
         for face in &old_admissible_faces {
             admissible_bridges[face].clear(i);
         }
-
-        //dbg!(bridge);
-        //dbg!(attachments);
 
         // If we only have one attachment there is no way to generate a 
         // bisecting path. Instead we add one and one edge.
@@ -133,46 +115,23 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
             let u = attachments.smallest().unwrap();
             let v = bridge.siblings(u).smallest().unwrap();
             embedding.embed_free_edge(u, v);
+            h_nodes.set(v);
             h.add_node(v);
             h.add_edge(u, v);
 
-            /*
-            if bridge.siblings(u).count() == 1 {
-                // If this node had only one edge then it is no longer part
-                // of bridge.
-                bridge_nodes.clear(u);
-                bridge = bridge.del_node(u);
-            }
-            if bridge.siblings(v).count() <= 1 {
-                bridge_nodes.clear(v);
-                bridge = bridge.del_node(v);
-            }
-            if bridge_nodes.is_empty() {
-                continue
-            }
-            // We now put the (possibly modified) bridge back into place and
-            // update pointers to it.
-            */
 
-                //.map(|bridge| bridge.nodes());
-
-            for new_bridge in compute_bridges(&bridge, &h) {
-                //dbg!(new_bridge);
-                let attachments = h.nodes().intersection(&new_bridge.nodes());
+            for new_bridge in compute_bridges(&bridge, &h, &h_nodes) {
+                let attachments = h_nodes.intersection(&new_bridge.nodes());
                 let j = bridges.push(new_bridge)?;
-                //dbg!(attachments);
                 admissible_faces.insert(j, B::new())?;
 
                 for face_j in &old_admissible_faces {
                     let face = faces[face_j];
-                    //dbg!(face_j);
-                    //dbg!(embedding.face_nodes(face));
                     if embedding.face_nodes(face).is_superset(&attachments) {
                         admissible_faces[j].set(face_j);
                         admissible_bridges[face_j].set(j);
                     }
                 }
-                //dbg!(admissible_faces[j]);
                 if admissible_faces[j].is_empty() {
                     // Bridge with no admissible faces, there is no embedding
                     return Ok(None)
@@ -185,50 +144,22 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
 
             }
 
-            /*
-            let j = bridges.push(bridge_nodes);
-            let attachments = h.nodes().intersection(&bridge_nodes);
-            for face in old_admissible_faces {
-                if embedding.face_nodes(faces[face]).is_superset(&attachments) {
-                    admissible_bridges[face].set(j);
-                    admissible_faces[j].set(face);
-                }
-            }
-
-            if admissible_faces[j].is_empty() {
-                // FIXME: Why is this happening?
-                return None
-            }
-
-            if admissible_faces[j].count() == 1 {
-                one_admissible.push(j);
-            }
-            */
         } else {
             let start = attachments.smallest().unwrap();
             attachments.clear(start);
 
             let path = bridge.path(start, &attachments).unwrap();
-            //dbg!(path);
 
             let face_i = old_admissible_faces.smallest().unwrap();
             let face = faces.take(face_i).unwrap();
 
-            //dbg!(face_i);
-            //dbg!(embedding.face_nodes(face));
-            //dbg!(embedding.face(face).collect::<Vec<_>>());
-
             let new_faces = embedding.embed_bisecting_path(face, &path);
+            for i in path.iter() {
+                h_nodes.set(i);
+            }
             h.union(&G::from_path(&path));
 
-            //dbg!(&embedding);
-
-            //dbg!(embedding.face(new_faces[0]).collect::<Vec<_>>());
-            //dbg!(embedding.face(new_faces[1]).collect::<Vec<_>>());
-
             let old_admissible_bridges = admissible_bridges.take(face_i).unwrap();
-
-            //admissible_bridges[face_i] = Bitset16::new();
 
             let mut new_faces_idx = [0; 2];
             new_faces_idx[0] = faces.push(new_faces[0])?;
@@ -240,7 +171,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
             for bridge in &old_admissible_bridges {
                 admissible_faces[bridge].clear(face_i);
 
-                let attachments = h.nodes().intersection(&bridges[bridge].nodes());
+                let attachments = h_nodes.intersection(&bridges[bridge].nodes());
     
                 for face_j in &new_faces_idx {
                     if embedding.face_nodes(faces[*face_j]).is_superset(&attachments) {
@@ -262,23 +193,18 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
             }
 
             // TODO: we know the changes, can this be faster?
-            for new_bridge in compute_bridges(&bridge, &h) {
-                //dbg!(new_bridge);
-                let attachments = h.nodes().intersection(&new_bridge.nodes());
+            for new_bridge in compute_bridges(&bridge, &h, &h_nodes) {
+                let attachments = h_nodes.intersection(&new_bridge.nodes());
                 let j = bridges.push(new_bridge)?;
-                //dbg!(attachments);
                 admissible_faces.insert(j, B::new())?;
 
                 for face_j in &new_faces_idx {
                     let face = faces[*face_j];
-                    //dbg!(face_j);
-                    //dbg!(embedding.face_nodes(face));
                     if embedding.face_nodes(face).is_superset(&attachments) {
                         admissible_faces[j].set(*face_j);
                         admissible_bridges[*face_j].set(j);
                     }
                 }
-                //dbg!(admissible_faces[j]);
                 if admissible_faces[j].is_empty() {
                     // Bridge with no admissible faces, there is no embedding
                     return Ok(None)

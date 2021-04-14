@@ -72,6 +72,19 @@ pub fn search_tree<G: Graph + Ord>(graph: G) -> SearchResults<G> {
     }
 }
 
+pub fn search_tree_with_coloring<G: Graph + Ord>(graph: G, coloring: G::Coloring) -> SearchResults<G> {
+    let mut tree = SearchTree::new(graph);
+    tree.start_search(coloring);
+
+    let canonical = tree.largest_invariant.unwrap();
+
+    SearchResults {
+        automorphisms: tree.automorphisms,
+        canonical_relabeling: canonical.0,
+        canonical_graph: canonical.1.end_graph.unwrap(),
+    }
+}
+
 pub struct SearchTree<G: Graph> {
     graph: G,
     automorphisms: HashSet<G::Perm>,
