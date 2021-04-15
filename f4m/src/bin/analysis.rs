@@ -2,11 +2,10 @@ use sgtk::graph::{minors, subgraphs, Graph32};
 use sgtk::prelude::*;
 use std::collections::{HashSet, HashMap};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::io::Write;
 use structopt::StructOpt;
 use anyhow::{anyhow, Context, Result};
-use indicatif::{ProgressBar, ProgressStyle, HumanDuration};
+use indicatif::{ProgressBar, ProgressStyle};
 use console::style;
 
 #[derive(StructOpt, Debug)]
@@ -27,6 +26,9 @@ struct Opt {
     /// Check if the new obstructions are minor order
     #[structopt(long)]
     check_minor: bool,
+    /// Convert new obstructions to canonical form
+    #[structopt(long)]
+    to_canonical: bool,
 
 }
 
@@ -128,6 +130,9 @@ fn main() -> Result<()> {
     let mut unknown_obstructions = Stats::new();
     let mut unknown_minors = Stats::new();
 
+    let mut graph_is_obstruction = HashMap::new();
+    let mut graph_is_minor = HashMap::new();
+
     let num_len = opt.new_obstructions.len().to_string().len();
     for (i, obstr_file) in opt.new_obstructions.iter().enumerate() {
         let file = std::fs::read_to_string(obstr_file)
@@ -137,18 +142,28 @@ fn main() -> Result<()> {
         bar.set_style(progress_style.clone());
         bar.set_prefix(&format!("[{:width$}/{:width$}] ", i+1, opt.new_obstructions.len(), width = num_len));
         for line in file.lines() {
-            let graph = sgtk::parse::from_graph6::<Graph32>(line)
-                .to_canonical();
-            if !opt.check || is_obstruction(&graph) {
+            let mut graph = sgtk::parse::from_graph6::<Graph32>(line);
+            if opt.to_canonical {
+                graph = graph.to_canonical();
+            }
+            
+            if !graph_is_obstruction.contains_key(&graph) {
+                graph_is_obstruction.insert(graph, !opt.check || is_obstruction(&graph));
+                if opt.check_minor && !graph_is_minor.contains_key(&graph) {
+                    graph_is_minor.insert(graph, is_minor_obstruction(&graph));
+                }
+            }
+
+            if graph_is_obstruction[&graph] {
                 new_obstructions.add_graph(graph);
-                if opt.check_minor && is_minor_obstruction(&graph) {
+                if !known_obstructions.contains(&graph) {
+                    unknown_obstructions.add_graph(graph);
+                }
+                if opt.check_minor && graph_is_minor[&graph] {
                     new_minors.add_graph(graph);
                     if !known_obstructions.contains(&graph) {
                         unknown_minors.add_graph(graph);
                     }
-                }
-                if !known_obstructions.contains(&graph) {
-                    unknown_obstructions.add_graph(graph);
                 }
             }
             bar.inc(1);
