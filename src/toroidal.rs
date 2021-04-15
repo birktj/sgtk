@@ -63,6 +63,18 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     }
 
     let h = find_kuratowski(graph.to_owned());
+
+    find_embedding_with_subgraph(graph, h)
+}
+
+pub fn find_embedding_with_subgraph<G: Graph>(graph: &G, h: G) -> Option<G::Embedding> {
+    let node_count = graph.nodes().count();
+    let edge_count = graph.edges().count();
+
+    if edge_count > 3*node_count {
+        return None
+    }
+
     let mut bridges = Vec::new();
 
     for bridge in compute_bridges(graph, &h) {

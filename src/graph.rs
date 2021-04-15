@@ -419,6 +419,10 @@ impl<B: Bitset + Copy, const N: usize> BitsetGraph<B, N> {
         }
         graph
     }
+
+    pub fn to_raw(self) -> [B; N] {
+        self.g
+    }
 }
 
 impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {

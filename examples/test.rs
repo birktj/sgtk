@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use sgtk::*;
-use sgtk::graph::{minors, Graph, Graph16, Coloring, Coloring16};
+use sgtk::graph::{minors, subgraphs, Graph, Graph16, Coloring, Coloring16};
 use sgtk::embedding::RotationSystem;
 
 fn main() {
@@ -14,13 +14,19 @@ fn main() {
         }
     }
 
-    let k5 = Graph16::complete(5);
+    let mut k5 = Graph16::complete(5);
+    k5.add_node(5);
+    for i in 2..5 {
+        k5.add_edge(5, i);
+    }
 
-    let graph: Graph16 = sgtk::parse::from_graph6("GF~~~{");
 
-    for minor in minors(&graph) {
+    let graph: Graph16 = sgtk::parse::from_graph6("L?Xq`A_[CEOWBg");
+
+    for minor in subgraphs(&graph).filter(|g| g.is_connected()) {
         let embedding = toroidal::find_embedding(&minor);
         if embedding.is_none() {
+            dbg!(crate::parse::to_graph6(&minor));
             dbg!(minor);
         }
     }
