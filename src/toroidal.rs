@@ -23,8 +23,8 @@ pub fn find_kuratowski<G: Graph>(mut graph: G) -> G {
 }
 
 #[inline(always)]
-pub fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterator<Item = G> {
-    graph.edges_from_to(h.nodes(), h.nodes()).filter(move |(u, v)| {
+pub fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G, h_nodes: &'a G::Set) -> impl 'a + Iterator<Item = G> {
+    graph.edges_from_to(h_nodes.clone(), h_nodes.clone()).filter(move |(u, v)| {
         !h.has_edge(*u, *v)
     })
     .map(|(u, v)| {
@@ -33,9 +33,9 @@ pub fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G) -> impl 'a + Iterat
         g.add_node(v);
         g.add_edge(u, v);
         g
-    }).chain(graph.subgraph(&h.nodes().invert()).components()
+    }).chain(graph.subgraph(&h_nodes.invert()).components()
         .map(move |mut c| {
-            c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h.nodes()));
+            c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h_nodes));
             c
         }))
 }
@@ -74,11 +74,12 @@ pub fn find_embedding_with_subgraph<G: Graph>(graph: &G, h: G) -> Option<G::Embe
     if edge_count > 3*node_count {
         return None
     }
+    let h_nodes = h.nodes();
 
     let mut bridges = Vec::new();
 
-    for bridge in compute_bridges(graph, &h) {
-        let attachments = h.nodes().intersection(&bridge.nodes());
+    for bridge in compute_bridges(graph, &h, &h_nodes) {
+        let attachments = h_nodes.intersection(&bridge.nodes());
         let mut test_bridge = bridge.clone();
         test_bridge.merge_nodes(&attachments);
         if dmp_wrapper(&test_bridge).is_none() {
@@ -138,6 +139,7 @@ struct TorusSearcher<G: Graph, SM, BM, FM> {
     bridges: BM,
     faces: FM,
     h: G,
+    h_nodes: G::Set,
 }
 
 impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
@@ -152,6 +154,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
 {
     fn new(embedding: G::Embedding, bridges_list: &[G]) -> Result<Option<Self>, FullMapError> {
         let h = embedding.to_graph();
+        let h_nodes = h.nodes();
         let mut faces = FM::new();
         for face in embedding.faces() {
             faces.push(face)?;
@@ -172,7 +175,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
         for (i, bridge) in &bridges {
             admissible_faces.insert(i, SM::Output::new())?;
             for (j, face) in &faces {
-                let attachments = h.nodes().intersection(&bridge.nodes());
+                let attachments = h_nodes.intersection(&bridge.nodes());
                 if embedding.face_nodes(*face).is_superset(&attachments) {
                     admissible_faces[i].set(j);
                     admissible_bridges[j].set(i);
@@ -189,11 +192,12 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
             bridges,
             faces,
             h,
+            h_nodes,
         }))
     }
 
     fn update_faces(&mut self, bridge_i: usize, face_i: usize) {
-        let attachments = self.h.nodes().intersection(&self.bridges[bridge_i].nodes());
+        let attachments = self.h_nodes.intersection(&self.bridges[bridge_i].nodes());
 
         if self.embedding.face_nodes(self.faces[face_i]).is_superset(&attachments) {
             self.admissible_faces[bridge_i].set(face_i);
@@ -202,7 +206,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
     }
 
     fn add_bridge(&mut self, bridge: G, admissible_faces: &SM::Output) -> Result<Option<usize>, FullMapError> {
-        let attachments = self.h.nodes().intersection(&bridge.nodes());
+        let attachments = self.h_nodes.intersection(&bridge.nodes());
         let i = self.bridges.push(bridge)?;
 
         self.admissible_faces.insert(i, SM::Output::new())?;
@@ -271,7 +275,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
             //dbg!(bridge);
             //dbg!(self.embedding.face(self.faces[*face_i]).collect::<Vec<_>>());
 
-            let mut attachments = bridge_nodes.intersection(&self.h.nodes());
+            let mut attachments = bridge_nodes.intersection(&self.h_nodes);
             let start = attachments.smallest().unwrap();
             attachments.clear(start);
 
@@ -286,6 +290,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                 }
                 for u in start_endpoints.iter() {
                     self.embedding.embed_edge_before(start, u, end);
+                    self.h_nodes.set(end);
                     self.h.add_node(end);
                     self.h.add_edge(start, end);
 
@@ -296,7 +301,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
     
                     let mut ok = true;
 
-                    for new_bridge in compute_bridges(&bridge, &self.h.clone()) {
+                    for new_bridge in compute_bridges(&bridge, &self.h.clone(), &self.h_nodes.clone()) {
                         if let Some(i) = self.add_bridge(new_bridge, &new_faces_idx)? {
                             new_bridges_idx.set(i);
                         } else {
@@ -310,6 +315,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                     }
                     self.h.del_edge(start, end);
                     self.h.del_node(end);
+                    self.h_nodes.clear(end);
                     self.embedding.remove_edge(start, end);
 
                     for j in &new_bridges_idx {
@@ -335,9 +341,11 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                     for v in end_endpoints.iter() {
                         //dbg!(u, v);
                         let oldh = self.h.clone();
+                        let old_h_nodes = self.h_nodes.clone();
 
                         let new_faces = self.embedding.embed_bisecting_path_after(&path, u, v);
                         self.h.union(&G::from_path(&path));
+                        self.h_nodes = self.h.nodes();
 
                         let mut new_faces_idx = SM::Output::new();
                         new_faces_idx.set(self.faces.push(new_faces[0])?);
@@ -362,7 +370,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                         let mut new_bridges_idx = SM::Output::new();
 
                         if ok {
-                            for new_bridge in compute_bridges(&bridge, &self.h.clone()) {
+                            for new_bridge in compute_bridges(&bridge, &self.h.clone(), &self.h_nodes.clone()) {
                                 if let Some(i) = self.add_bridge(new_bridge, &new_faces_idx)? {
                                     new_bridges_idx.set(i);
                                 } else {
@@ -377,6 +385,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                         }
 
                         self.h = oldh;
+                        self.h_nodes = old_h_nodes;
                         //dbg!(&path);
                         for (u, v) in G::from_path(&path).edges() {
                             self.embedding.remove_edge(u, v);
