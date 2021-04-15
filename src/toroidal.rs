@@ -67,17 +67,18 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
 
     for bridge in compute_bridges(graph, &h) {
         let attachments = h.nodes().intersection(&bridge.nodes());
-        let mut new_bridge = bridge.clone();
-        new_bridge.merge_nodes(&attachments);
-        if dmp_wrapper(&new_bridge).is_none() {
+        let mut test_bridge = bridge.clone();
+        test_bridge.merge_nodes(&attachments);
+        if dmp_wrapper(&test_bridge).is_none() {
             return None
         }
-        if attachments.count() <= 3 && bridge.nodes().count() > attachments.count() {
+        if attachments.count() <= 2 && bridge.nodes().count() > attachments.count() {
             let mut new_bridge = G::empty();
             for u in attachments.iter() {
                 new_bridge.add_node(u);
             }
             let u = bridge.nodes().intersection(&attachments.invert()).smallest().unwrap();
+            new_bridge.add_node(u);
             new_bridge.add_edges(u, &attachments);
             bridges.push(new_bridge);
         } else {
