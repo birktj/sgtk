@@ -168,7 +168,7 @@ impl<'a, G: Graph, R: RotationSystem<G>> Iterator for Faces<'a, G, R> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct SmallRotationSystem<B, const N: usize> {
     nodes: B,
     edges: [B; N],
