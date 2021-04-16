@@ -93,7 +93,7 @@ pub fn find_embedding_with_subgraph<G: Graph>(graph: &G, h: G) -> Option<G::Embe
             let u = bridge.nodes().intersection(&attachments.invert()).smallest().unwrap();
             new_bridge.add_node(u);
             new_bridge.add_edges(u, &attachments);
-            bridges.push(new_bridge);
+            bridges.push(bridge);
         } else {
             bridges.push(bridge);
         }

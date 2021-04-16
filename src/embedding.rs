@@ -50,6 +50,8 @@ pub trait RotationSystem<G: Graph>: Sized + Clone {
 
     fn before(&self, u: usize, v: usize) -> usize;
 
+    fn remove_node(&mut self, node: usize);
+
     fn insert_edge(&mut self, node: usize, after: usize, dest: usize);
 
     fn insert_edge_any(&mut self, node: usize, dest: usize);
@@ -282,6 +284,14 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
     #[inline]
     fn before(&self, u: usize, v: usize) -> usize {
         usize::from(self.order_inv[u][v])
+    }
+
+    #[inline]
+    fn remove_node(&mut self, u: usize) {
+        for v in self.edges[u].iter() {
+            self.remove_edge(u, v);
+        }
+        self.nodes.clear(u);
     }
 
     #[inline]

@@ -19,21 +19,26 @@ struct Opt {
     output: Option<PathBuf>,
 }
 
-fn find_toroidal_obstruction<G: Graph + Ord>(mut graph: G) -> Graph64 {
+fn find_toroidal_obstruction<G: Graph + Ord>(mut graph: G, subgraph: Option<G>) -> Graph64 {
     if G::MAXN > 16 {
         let node_count = graph.nodes().count();
         if node_count < 16 {
             graph.trim();
-            return find_toroidal_obstruction::<Graph16>(graph.convert())
+            return find_toroidal_obstruction::<Graph16>(graph.convert(), None)
         } else if G::MAXN > 32 && node_count < 32 {
             graph.trim();
-            return find_toroidal_obstruction::<Graph32>(graph.convert())
+            return find_toroidal_obstruction::<Graph32>(graph.convert(), None)
         }
     }
-    
+
     for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
-        if sgtk::toroidal::find_embedding(&minor).is_none() {
-            return find_toroidal_obstruction(minor)
+        if sgtk::planar::fastdmp(&minor).is_some() {
+            continue
+        }
+        let h = subgraph.clone().filter(|g| minor.is_supergraph(&g))
+            .unwrap_or_else(|| sgtk::toroidal::find_kuratowski(minor.clone()));
+        if sgtk::toroidal::find_embedding_with_subgraph(&minor, h.clone()).is_none() {
+            return find_toroidal_obstruction(minor, Some(h))
         }
     }
 
@@ -77,7 +82,7 @@ fn main() {
 
         if sgtk::toroidal::find_embedding(&graph).is_none() {
             stats.num_obstructions += 1;
-            let obstruction = find_toroidal_obstruction(graph);
+            let obstruction = find_toroidal_obstruction(graph, None);
             *stats.count_sizes.entry(obstruction.nodes().count()).or_insert(0) += 1;
             *stats.obstructions.entry(obstruction).or_insert(0) += 1;
             write!(output, "{}\n", sgtk::parse::to_graph6(&obstruction)).unwrap();
