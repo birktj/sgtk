@@ -140,6 +140,7 @@ struct TorusSearcher<G: Graph, SM, BM, FM> {
     faces: FM,
     h: G,
     h_nodes: G::Set,
+    bridges_rem: usize,
 }
 
 impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
@@ -193,6 +194,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
             faces,
             h,
             h_nodes,
+            bridges_rem: bridges_list.len(),
         }))
     }
 
@@ -312,6 +314,8 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
 
                     if ok && self.search()? {
                         return Ok(true)
+                    } else {
+                        self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
                     }
                     self.h.del_edge(start, end);
                     self.h.del_node(end);
@@ -382,6 +386,8 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
 
                         if ok && self.search()? {
                             return Ok(true)
+                        } else {
+                            self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
                         }
 
                         self.h = oldh;
