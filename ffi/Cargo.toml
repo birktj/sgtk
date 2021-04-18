@@ -1,0 +1,13 @@
+[package]
+name = "sgtk-ffi"
+version = "0.1.0"
+authors = ["Birk Tjelmeland <git@birktj.no>"]
+edition = "2018"
+
+[lib]
+crate_type = ["staticlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sgtk = { path = "../" }
