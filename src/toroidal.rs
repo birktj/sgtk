@@ -270,63 +270,61 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
         for j in &old_admissible_faces {
             self.admissible_bridges[j].clear(bridge_i);
         }
+        let mut attachments = bridge_nodes.intersection(&self.h_nodes);
+        let start = attachments.smallest().unwrap();
+        attachments.clear(start);
 
-        for face_i in &old_admissible_faces {
-            //dbg!(old_admissible_faces);
-            //dbg!(face_i);
-            //dbg!(bridge);
-            //dbg!(self.embedding.face(self.faces[*face_i]).collect::<Vec<_>>());
-
-            let mut attachments = bridge_nodes.intersection(&self.h_nodes);
-            let start = attachments.smallest().unwrap();
-            attachments.clear(start);
-
-            if attachments.is_empty() {
-                let face = self.faces[face_i];
-                let end = bridge.siblings(start).smallest().unwrap();
-                let mut start_endpoints = Seq16::new();
-                for (u, v) in self.embedding.face(face) {
-                    if u == start {
-                        start_endpoints.push(v);
-                    }
+        if attachments.is_empty() {
+            let face_i = old_admissible_faces.smallest().unwrap();
+            let face = self.faces[face_i];
+            let end = bridge.siblings(start).smallest().unwrap();
+            let mut start_endpoint = 0;
+            for (u, v) in self.embedding.face(face) {
+                if u == start {
+                    start_endpoint = v;
+                    break;
                 }
-                for u in start_endpoints.iter() {
-                    self.embedding.embed_edge_before(start, u, end);
-                    self.h_nodes.set(end);
-                    self.h.add_node(end);
-                    self.h.add_edge(start, end);
+            }
+            self.embedding.embed_edge_before(start, start_endpoint, end);
+            self.h_nodes.set(end);
+            self.h.add_node(end);
+            self.h.add_edge(start, end);
 
-                    let mut new_bridges_idx = SM::Output::new();
+            let mut new_bridges_idx = SM::Output::new();
 
-                    let mut new_faces_idx = SM::Output::new();
-                    new_faces_idx.set(face_i);
-    
-                    let mut ok = true;
+            let mut new_faces_idx = SM::Output::new();
+            new_faces_idx.set(face_i);
 
-                    for new_bridge in compute_bridges(&bridge, &self.h.clone(), &self.h_nodes.clone()) {
-                        if let Some(i) = self.add_bridge(new_bridge, &new_faces_idx)? {
-                            new_bridges_idx.set(i);
-                        } else {
-                            ok = false;
-                            break;
-                        }
-                    }
+            let mut ok = true;
 
-                    if ok && self.search()? {
-                        return Ok(true)
-                    } else {
-                        self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
-                    }
-                    self.h.del_edge(start, end);
-                    self.h.del_node(end);
-                    self.h_nodes.clear(end);
-                    self.embedding.remove_edge(start, end);
-
-                    for j in &new_bridges_idx {
-                        self.remove_bridge(j);
-                    }
+            for new_bridge in compute_bridges(&bridge, &self.h.clone(), &self.h_nodes.clone()) {
+                if let Some(i) = self.add_bridge(new_bridge, &new_faces_idx)? {
+                    new_bridges_idx.set(i);
+                } else {
+                    ok = false;
+                    break;
                 }
+            }
+
+            if ok && self.search()? {
+                return Ok(true)
             } else {
+                self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
+            }
+            self.h.del_edge(start, end);
+            self.h.del_node(end);
+            self.h_nodes.clear(end);
+            self.embedding.remove_edge(start, end);
+
+            for j in &new_bridges_idx {
+                self.remove_bridge(j);
+            }
+        } else {
+            for face_i in &old_admissible_faces {
+                //dbg!(old_admissible_faces);
+                //dbg!(face_i);
+                //dbg!(bridge);
+                //dbg!(self.embedding.face(self.faces[*face_i]).collect::<Vec<_>>());
                 let (face, old_admissible_bridges) = self.remove_face(face_i);
                 let path = bridge.path(start, &attachments).unwrap();
                 //dbg!(path);
