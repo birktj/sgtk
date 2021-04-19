@@ -63,7 +63,12 @@ fn is_obstruction(graph: &Graph16, k: Graph16) -> bool {
         }
     }
 
-    for subgraph in sgtk::graph::subgraphs(graph).filter(|g| g.is_connected()) {
+    for (u, v) in graph.edges() {
+        let mut subgraph = graph.clone();
+        subgraph.del_edge(u, v);
+        if !subgraph.is_connected() {
+            continue
+        }
         if subgraph.is_supergraph(&k) {
             if sgtk::toroidal::find_embedding_with_subgraph(&subgraph, k.clone()).is_none() {
                 return false
