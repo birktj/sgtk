@@ -16,6 +16,8 @@ pub trait RotationSystem<G: Graph>: Sized + Clone {
     type EnumIter:  Iterator<Item = Self>;
     type FacesIter: FacesIter<G, Self>;
 
+    fn empty() -> Self;
+
     fn simple(graph: &G) -> Self;
 
     fn enumerate(graph: &G) -> Self::EnumIter;
@@ -206,6 +208,15 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
     type EnumIter = SmallRotationSystemEnumerate<B, N>;
     type FacesIter = SmallFacesIter<B, N>;
 
+    fn empty() -> Self {
+        Self {
+            nodes: B::new(),
+            edges: [B::new(); N],
+            order: [[0; N]; N],
+            order_inv: [[0; N]; N],
+        }
+    }
+
     fn simple(graph: &BitsetGraph<B, N>) -> Self {
         let nodes = graph.nodes();
         let mut edges = [B::new(); N];
@@ -268,7 +279,8 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         let graph = self.to_graph();
         let edge_count = graph.edges().count();
         let component_count = graph.components().count();
-        (3 + edge_count + component_count - 1 - self.nodes.count() - self.faces().count()) / 2
+        let face_count = std::cmp::max(1, self.faces().count());
+        (3 + edge_count + component_count - 1 - self.nodes.count() - face_count) / 2
     }
 
     fn faces<'a>(&'a self) -> Faces<'a, BitsetGraph<B, N>, Self> {
@@ -447,6 +459,19 @@ impl<B: Bitset, const N: usize> Iterator for SmallRotationSystemEnumerate<B, N> 
 mod tests {
     use super::*;
     use crate::graph::Graph16;
+
+    #[test]
+    fn empty_is_planar() {
+        let embedding = RotationSystem16::empty();
+        assert_eq!(embedding.genus(), 0);
+    }
+
+    #[test]
+    fn k1_simple_is_planar() {
+        let k1 = Graph16::complete(1);
+        let embedding = RotationSystem16::simple(&k1);
+        assert_eq!(embedding.genus(), 0);
+    }
 
     #[test]
     fn k3_simple_is_planar() {
