@@ -142,12 +142,14 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
         level_data.borrow_mut().siblings[n+1] = HashSet::new();
         level_data.borrow_mut().embeddings[n] = None;
 
+        /*
         if !graph.is_connected() {
             return 0
         }
+        */
 
         if n < maxn && k.is_none() {
-            if let Some(embedding) = sgtk::planar::fastdmp(&graph) {
+            if let Some(embedding) = sgtk::planar::find_embedding(&graph) {
                 level_data.borrow_mut().embeddings[n] = Some(embedding);
                 level_data.borrow_mut().num_toroidal += 1;
                 return 0
@@ -206,7 +208,7 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
         }
 
         if k.is_none() {
-            if let Some(embedding) = sgtk::planar::fastdmp(&graph) {
+            if let Some(embedding) = sgtk::planar::find_embedding(&graph) {
                 level_data.borrow_mut().embeddings[n] = Some(embedding);
                 level_data.borrow_mut().num_toroidal += 1;
                 return 0
