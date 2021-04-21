@@ -51,6 +51,27 @@ fn dmp_wrapper2<G: Graph>(graph: &G) -> Option<G::Embedding> {
 }
 
 pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
+    if graph.is_connected() {
+        find_embedding_connected(graph)
+    } else {
+        let mut embedding = G::Embedding::empty();
+        let mut torus_part = false;
+        for component in graph.to_owned().components() {
+            if let Some(planar) = planar::fastdmp(&component) {
+                embedding.embed_disconnected(&planar);
+            } else if !torus_part {
+                torus_part = true;
+                embedding.embed_disconnected(&find_embedding_connected(&component)?);
+            } else {
+                return None
+            }
+
+        }
+        Some(embedding)
+    }
+}
+
+fn find_embedding_connected<G: Graph>(graph: &G) -> Option<G::Embedding> {
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
 
@@ -64,10 +85,34 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
 
     let h = find_kuratowski(graph.to_owned());
 
-    find_embedding_with_subgraph(graph, h)
+    find_embedding_with_subgraph_connected(graph, h)
 }
 
 pub fn find_embedding_with_subgraph<G: Graph>(graph: &G, h: G) -> Option<G::Embedding> {
+    if graph.is_connected() {
+        find_embedding_with_subgraph_connected(graph, h)
+    } else {
+        let mut embedding = G::Embedding::empty();
+        let mut torus_part = false;
+        for component in graph.to_owned().components() {
+            if let Some(planar) = planar::fastdmp(&component) {
+                embedding.embed_disconnected(&planar);
+            } else if !torus_part && component.is_supergraph(&h) {
+                torus_part = true;
+                embedding.embed_disconnected(&find_embedding_with_subgraph_connected(&component, h.clone())?);
+            } else if !torus_part {
+                torus_part = true;
+                embedding.embed_disconnected(&find_embedding_connected(&component)?);
+            } else {
+                return None
+            }
+
+        }
+        Some(embedding)
+    }
+}
+
+pub fn find_embedding_with_subgraph_connected<G: Graph>(graph: &G, h: G) -> Option<G::Embedding> {
     let node_count = graph.nodes().count();
     let edge_count = graph.edges().count();
 
@@ -427,14 +472,44 @@ mod tests {
     use super::*;
     use crate::graph::{minors, Graph16};
 
+    fn test_is_toroidal(graph: &Graph16) {
+        let embedding = find_embedding(graph);
+        assert!(embedding.is_some());
+        assert!(embedding.as_ref().unwrap().genus() <= 1);
+        assert_eq!(graph.to_canonical(), embedding.unwrap().to_graph().to_canonical());
+    }
+
     #[test]
     fn check_known_minor() {
         let graph: Graph16 = crate::parse::from_upper_tri("9 000001110000111000111111111111111000")
             .unwrap();
         assert!(find_embedding(&graph).is_none());
         for minor in minors(&graph) {
-            assert!(find_embedding(&minor).is_some());
+            test_is_toroidal(&minor);
         }
+    }
+
+    #[test]
+    fn k4_plus_k5_is_toroidal() {
+        let mut graph = Graph16::empty();
+
+        for i in 0..9 {
+            graph.add_node(i);
+        }
+
+        for u in 0..4 {
+            for v in 0..u {
+                graph.add_edge(u, v);
+            }
+        }
+
+        for u in 4..9 {
+            for v in 4..u {
+                graph.add_edge(u, v);
+            }
+        }
+
+        test_is_toroidal(&graph);
     }
 
 }
