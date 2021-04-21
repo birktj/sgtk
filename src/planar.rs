@@ -21,6 +21,18 @@ fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G, h_nodes: &'a G::Set) ->
         }))
 }
 
+pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
+    if graph.is_connected() {
+        fastdmp(graph)
+    } else {
+        let mut embedding = G::Embedding::empty();
+        for component in graph.to_owned().components() {
+            embedding.embed_disconnected(&fastdmp(&component)?);
+        }
+        Some(embedding)
+    }
+}
+
 pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
     dmp_inner::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(graph)
         .unwrap_or_else(|_| {
@@ -28,6 +40,7 @@ pub fn fastdmp<G: Graph>(graph: &G) -> Option<G::Embedding> {
                 .unwrap()
         })
 }
+
 fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = G>, FM: Slotmap<Output = Face>>(graph: &G) -> Result<Option<G::Embedding>, FullMapError> 
     where for<'a> &'a SM: IntoIterator<Item = (usize, &'a B)>,
           for<'a> &'a BM: IntoIterator<Item = (usize, &'a G)>,
@@ -224,22 +237,42 @@ mod tests {
     use super::*;
     use crate::graph::{minors, Graph16};
 
+    fn test_is_planar(graph: &Graph16) {
+        let embedding = find_embedding(graph);
+        assert!(embedding.is_some());
+        assert_eq!(embedding.as_ref().unwrap().genus(), 0);
+        assert_eq!(graph.to_canonical(), embedding.unwrap().to_graph().to_canonical());
+    }
+
+    #[test]
+    fn k1_planar() {
+        test_is_planar(&Graph16::complete(1));
+    }
+
     #[test]
     fn k4_planar() {
-        let graph = Graph16::complete(4);
-        assert!(fastdmp(&graph).is_some());
+        test_is_planar(&Graph16::complete(4));
     }
 
     #[test]
     fn k5_not_planar() {
         let graph = Graph16::complete(5);
-        assert!(fastdmp(&graph).is_none());
+        assert!(find_embedding(&graph).is_none());
     }
 
     #[test]
     fn k5_minors_planar() {
         for graph in minors(&Graph16::complete(5)) {
-            assert!(fastdmp(&graph).is_some());
+            test_is_planar(&graph);
         }
+    }
+
+    #[test]
+    fn k1_x10_planar() {
+        let mut graph = Graph16::empty();
+        for u in 0..10 {
+            graph.add_node(u);
+        }
+        test_is_planar(&graph);
     }
 }
