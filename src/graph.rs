@@ -224,6 +224,19 @@ pub trait Graph: Sized + Clone {
         self == &self.clone().to_canonical()
     }
 
+    fn is_planar(&self) -> bool {
+        if self.is_connected() {
+            crate::planar::fastdmp(self).is_some()
+        } else {
+            for component in self.clone().components() {
+                if crate::planar::fastdmp(&component).is_none() {
+                    return false
+                }
+            }
+            true
+        }
+    }
+
     fn spanning_tree(&self) -> Self {
         struct Dfs<'a, G: Graph> {
             graph: &'a G,
