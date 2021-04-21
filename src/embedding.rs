@@ -119,6 +119,8 @@ pub trait RotationSystem<G: Graph>: Sized + Clone {
         // This should in theory give the two faces on each side of the bisecting path
         [Face { u0: start, v0: start_snd }, Face { u0: start_snd, v0: start }]
     }
+
+    fn embed_disconnected(&mut self, other: &Self);
 }
 
 pub struct FaceIter<'a, G: Graph, R: RotationSystem<G>> {
@@ -324,6 +326,18 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         let after  = usize::from(self.order[u][v]);
         self.order[u][before] = after as u8;
         self.order_inv[u][after]  = before as u8;
+    }
+
+    fn embed_disconnected(&mut self, other: &Self) {
+        debug_assert!(self.nodes.union(&other.nodes).is_empty());
+        self.nodes = self.nodes.union(&other.nodes);
+        for i in 0..N {
+            self.edges[i] = self.edges[i].union(&other.edges[i]);
+        }
+        for u in other.nodes.iter() {
+            self.order[u] = other.order[u];
+            self.order_inv[u] = other.order_inv[u];
+        }
     }
 }
 
