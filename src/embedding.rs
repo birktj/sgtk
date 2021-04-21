@@ -265,7 +265,10 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
     }
 
     fn genus(&self) -> usize {
-        (3 + self.to_graph().edges().count() - self.nodes.count() - self.faces().count()) / 2
+        let graph = self.to_graph();
+        let edge_count = graph.edges().count();
+        let component_count = graph.components().count();
+        (3 + edge_count + component_count - 1 - self.nodes.count() - self.faces().count()) / 2
     }
 
     fn faces<'a>(&'a self) -> Faces<'a, BitsetGraph<B, N>, Self> {
@@ -329,7 +332,7 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
     }
 
     fn embed_disconnected(&mut self, other: &Self) {
-        debug_assert!(self.nodes.union(&other.nodes).is_empty());
+        debug_assert!(self.nodes.intersection(&other.nodes).is_empty());
         self.nodes = self.nodes.union(&other.nodes);
         for i in 0..N {
             self.edges[i] = self.edges[i].union(&other.edges[i]);
@@ -444,6 +447,33 @@ impl<B: Bitset, const N: usize> Iterator for SmallRotationSystemEnumerate<B, N> 
 mod tests {
     use super::*;
     use crate::graph::Graph16;
+
+    #[test]
+    fn k3_simple_is_planar() {
+        let k3 = Graph16::complete(3);
+        let embedding = RotationSystem16::simple(&k3);
+        assert_eq!(embedding.genus(), 0);
+    }
+
+    #[test]
+    fn k3_x2_simple_is_planar() {
+        let k3 = Graph16::complete(3);
+        let mut embedding = RotationSystem16::simple(&k3);
+
+        let mut k3 = Graph16::empty();
+        for u in 3..6 {
+            k3.add_node(u);
+        }
+        for u in 3..6 {
+            for v in 3..u {
+                k3.add_edge(u, v);
+            }
+        }
+
+        embedding.embed_disconnected(&RotationSystem16::simple(&k3));
+
+        assert_eq!(embedding.genus(), 0);
+    }
 
     #[test]
     fn count_toroidal_embeddings_k5() {
