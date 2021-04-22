@@ -10,5 +10,6 @@ cargo build --release
 cd ../ffi
 cargo build --release
 cd ../geng-search
+make clean
 make toroidal-geng
 EOF
