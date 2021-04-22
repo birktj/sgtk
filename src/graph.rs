@@ -178,6 +178,7 @@ pub trait Graph: Sized + Clone {
 
     fn difference(&mut self, other: &Self);
 
+    #[inline]
     fn neighbouring(&self, nodes: &Self::Set) -> Self {
         let mut selection = Self::Set::new();
         for i in nodes.iter() {
@@ -189,6 +190,7 @@ pub trait Graph: Sized + Clone {
 
     fn bipartite_split(&self, a: &Self::Set, b: &Self::Set) -> Self;
 
+    #[inline]
     fn is_connected(&self) -> bool {
         let nodes = self.nodes();
 
@@ -199,6 +201,7 @@ pub trait Graph: Sized + Clone {
         }
     }
 
+    #[inline]
     fn get_component(&self, u: usize) -> Self::Set {
         let mut visited = Self::Set::new();
         let mut queue   = Self::Set::new();
