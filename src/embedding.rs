@@ -408,15 +408,16 @@ impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
     #[inline]
     fn next_perm(&mut self, i: usize) -> bool {
         if let Some(new) = self.permutations[i].next() {
-            let j0 = self.curr.edges[i].smallest().unwrap();
-            let mut last = j0;
-            for next in new.iter() {
-                self.curr.order[i][last] = next as u8;
-                self.curr.order_inv[i][next] = last as u8;
-                last = next;
+            if let Some(j0) = self.curr.edges[i].smallest() {
+                let mut last = j0;
+                for next in new.iter() {
+                    self.curr.order[i][last] = next as u8;
+                    self.curr.order_inv[i][next] = last as u8;
+                    last = next;
+                }
+                self.curr.order[i][last] = j0 as u8;
+                self.curr.order_inv[i][j0] = last as u8;
             }
-            self.curr.order[i][last] = j0 as u8;
-            self.curr.order_inv[i][j0] = last as u8;
             true
         } else {
             false
@@ -471,6 +472,27 @@ mod tests {
         let k1 = Graph16::complete(1);
         let embedding = RotationSystem16::simple(&k1);
         assert_eq!(embedding.genus(), 0);
+    }
+
+    #[test]
+    fn k1_x10_simple_is_planar() {
+        let mut graph = Graph16::empty();
+        for i in 0..10 {
+            graph.add_node(i);
+        }
+        let embedding = RotationSystem16::simple(&graph);
+        assert_eq!(embedding.genus(), 0);
+    }
+
+    #[test]
+    fn k1_x10_all_is_planar() {
+        let mut graph = Graph16::empty();
+        for i in 0..10 {
+            graph.add_node(i);
+        }
+        for embedding in RotationSystem16::enumerate(&graph) {
+            assert_eq!(embedding.genus(), 0);
+        }
     }
 
     #[test]
