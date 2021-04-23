@@ -470,22 +470,29 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph::{minors, Graph16};
+    use crate::graph::{subgraphs, Graph16};
 
     fn test_is_toroidal(graph: &Graph16) {
         let embedding = find_embedding(graph);
-        assert!(embedding.is_some());
+        assert!(embedding.is_some(), "Graph: {}", crate::parse::to_graph6(graph));
         assert!(embedding.as_ref().unwrap().genus() <= 1);
         assert_eq!(graph.to_canonical(), embedding.unwrap().to_graph().to_canonical());
     }
 
     #[test]
-    fn check_known_minor() {
-        let graph: Graph16 = crate::parse::from_upper_tri("9 000001110000111000111111111111111000")
-            .unwrap();
-        assert!(find_embedding(&graph).is_none());
-        for minor in minors(&graph) {
-            test_is_toroidal(&minor);
+    fn check_known_obstructions() {
+        let graphs: &[&str] = &[
+            "9 111000011100001100001000011111111111",
+            "9 000001110000111000111111111111111000",
+            "15 111000000000000000000101000000001001000010000000011100010000000000100100000100011000010010101000000001111",
+            "15 111000000000000000000110000001010000000101000000000001000001001000100100000100000001000010001100101111000"
+        ];
+        for s in graphs {
+            let graph: Graph16 = crate::parse::from_upper_tri(s).unwrap();
+            assert!(find_embedding(&graph).is_none(), "Graph: {}", crate::parse::to_graph6(&graph));
+            for minor in subgraphs(&graph) {
+                test_is_toroidal(&minor);
+            }
         }
     }
 
