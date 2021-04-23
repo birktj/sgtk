@@ -49,6 +49,8 @@ pub trait Graph: Sized + Clone {
 
     fn empty() -> Self;
 
+    fn is_empty(&self) -> bool;
+
     fn complete(n: usize) -> Self where Self: Sized {
         let mut graph = Self::empty();
         for i in 0..n {
@@ -453,6 +455,15 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
         Self {
             g: [B::new(); N],
         }
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        let mut is_empty = true;
+        for i in 0..N {
+            is_empty = is_empty && self.g[i].is_empty();
+        }
+        is_empty
     }
 
     #[inline]
