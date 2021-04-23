@@ -74,13 +74,13 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
     }
 
     for (i, _) in &bridges {
-        admissible_faces.insert(i, B::new())?;
+        admissible_faces.insert(i, B::new());
     }
 
     for face in embedding.faces() {
         let face_nodes = embedding.face_nodes(face);
         let i = faces.push(face)?;
-        admissible_bridges.insert(i, B::new())?;
+        admissible_bridges.insert(i, B::new());
 
         for (j, bridge) in &bridges {
             let attachments = h.nodes().intersection(&bridge.nodes());
@@ -136,7 +136,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
             for new_bridge in compute_bridges(&bridge, &h, &h_nodes) {
                 let attachments = h_nodes.intersection(&new_bridge.nodes());
                 let j = bridges.push(new_bridge)?;
-                admissible_faces.insert(j, B::new())?;
+                admissible_faces.insert(j, B::new());
 
                 for face_j in &old_admissible_faces {
                     let face = faces[face_j];
@@ -178,7 +178,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
             new_faces_idx[0] = faces.push(new_faces[0])?;
             new_faces_idx[1] = faces.push(new_faces[1])?;
             for j in &new_faces_idx {
-                admissible_bridges.insert(*j, B::new())?;
+                admissible_bridges.insert(*j, B::new());
             }
 
             for bridge in &old_admissible_bridges {
@@ -209,7 +209,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
             for new_bridge in compute_bridges(&bridge, &h, &h_nodes) {
                 let attachments = h_nodes.intersection(&new_bridge.nodes());
                 let j = bridges.push(new_bridge)?;
-                admissible_faces.insert(j, B::new())?;
+                admissible_faces.insert(j, B::new());
 
                 for face_j in &new_faces_idx {
                     let face = faces[*face_j];

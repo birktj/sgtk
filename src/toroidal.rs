@@ -216,10 +216,10 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
         let mut admissible_bridges = SM::new(); // [HashSet<usize>; 16] = Default::default();
 
         for (i, _) in &faces {
-            admissible_bridges.insert(i, SM::Output::new())?;
+            admissible_bridges.insert(i, SM::Output::new());
         }
         for (i, bridge) in &bridges {
-            admissible_faces.insert(i, SM::Output::new())?;
+            admissible_faces.insert(i, SM::Output::new());
             for (j, face) in &faces {
                 let attachments = h_nodes.intersection(&bridge.nodes());
                 if embedding.face_nodes(*face).is_superset(&attachments) {
@@ -256,7 +256,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
         let attachments = self.h_nodes.intersection(&bridge.nodes());
         let i = self.bridges.push(bridge)?;
 
-        self.admissible_faces.insert(i, SM::Output::new())?;
+        self.admissible_faces.insert(i, SM::Output::new());
 
         for j in admissible_faces {
             if self.embedding.face_nodes(self.faces[j]).is_superset(&attachments) {
@@ -399,7 +399,7 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                         new_faces_idx.set(self.faces.push(new_faces[1])?);
 
                         for idx in &new_faces_idx {
-                            self.admissible_bridges.insert(idx, SM::Output::new())?;
+                            self.admissible_bridges.insert(idx, SM::Output::new());
                         }
 
                         let mut ok = true;
@@ -450,15 +450,15 @@ impl<G: Graph, SM, BM, FM> TorusSearcher<G, SM, BM, FM>
                     }
                 }
                 //dbg!("insert", face_i);
-                self.faces.insert(face_i, face)?;
-                self.admissible_bridges.insert(face_i, old_admissible_bridges)?;
+                self.faces.insert(face_i, face);
+                self.admissible_bridges.insert(face_i, old_admissible_bridges);
                 for bridge_j in &self.admissible_bridges[face_i] {
                     self.admissible_faces[bridge_j].set(face_i);
                 }
             }
         }
-        self.bridges.insert(bridge_i, bridge)?;
-        self.admissible_faces.insert(bridge_i, old_admissible_faces)?;
+        self.bridges.insert(bridge_i, bridge);
+        self.admissible_faces.insert(bridge_i, old_admissible_faces);
 
         for j in &self.admissible_faces[bridge_i] {
             self.admissible_bridges[j].set(bridge_i);

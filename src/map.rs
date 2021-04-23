@@ -21,7 +21,7 @@ pub trait Slotmap: Index<usize> + IndexMut<usize> where Self::Output: Sized, for
 
     fn take(&mut self, i: usize) -> Option<Self::Output>;
 
-    fn insert(&mut self, i: usize, val: Self::Output) -> Result<(), FullMapError>;
+    fn insert(&mut self, i: usize, val: Self::Output);
 
     fn is_empty(&self) -> bool;
 
@@ -34,6 +34,7 @@ pub struct Map<T, B: Bitset, const N: usize> {
 }
 
 impl<T, B: Bitset, const N: usize> Slotmap for Map<T, B, N> {
+    #[inline]
     fn new() -> Self {
         let values = unsafe { MaybeUninit::uninit().assume_init() };
         Self {
@@ -42,6 +43,7 @@ impl<T, B: Bitset, const N: usize> Slotmap for Map<T, B, N> {
         }
     }
 
+    #[inline]
     fn push(&mut self, val: T) -> Result<usize, FullMapError> {
         let i = self.occupied.invert().smallest().ok_or(FullMapError)?;
         self.occupied.set(i);
@@ -49,34 +51,39 @@ impl<T, B: Bitset, const N: usize> Slotmap for Map<T, B, N> {
         Ok(i)
     }
 
+    #[inline]
     fn pop(&mut self) -> Option<(usize, T)> {
         let i = self.occupied.smallest()?;
         Some((i, self.take(i)?))
     }
 
+    #[inline]
     fn take(&mut self, i: usize) -> Option<T> {
-        assert!(self.occupied.get(i));
-        self.occupied.clear(i);
-        let res = std::mem::replace(&mut self.values[i], MaybeUninit::uninit());
+        if self.occupied.get(i) {
+            self.occupied.clear(i);
+            let res = std::mem::replace(&mut self.values[i], MaybeUninit::uninit());
 
-        unsafe {
-            Some(res.assume_init())
+            unsafe {
+                Some(res.assume_init())
+            }
+        } else {
+            None
         }
     }
 
-    fn insert(&mut self, i: usize, val: T) -> Result<(), FullMapError> {
-        if self.occupied.get(i) {
-            return Err(FullMapError)
-        }
+    #[inline]
+    fn insert(&mut self, i: usize, val: T) {
+        let _ = self.take(i);
         self.occupied.set(i);
         self.values[i] = MaybeUninit::new(val);
-        Ok(())
     }
 
+    #[inline]
     fn is_empty(&self) -> bool {
         self.occupied.is_empty()
     }
 
+    #[inline]
     fn count(&self) -> usize {
         self.occupied.count()
     }
@@ -239,16 +246,11 @@ impl<T> Slotmap for DynMap<T> {
         self.values.remove(&i)
     }
 
-    fn insert(&mut self, i: usize, val: T) -> Result<(), FullMapError> {
-        if self.values.contains_key(&i) {
-            Err(FullMapError)
-        } else  {
-            if self.counter <= i {
-                self.counter = i + 1;
-            }
-            self.values.insert(i, val);
-            Ok(())
+    fn insert(&mut self, i: usize, val: T) {
+        if self.counter <= i {
+            self.counter = i + 1;
         }
+        self.values.insert(i, val);
     }
 
     fn is_empty(&self) -> bool {
