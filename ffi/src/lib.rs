@@ -35,6 +35,7 @@ struct LevelData {
     num_superset: u64,
     num_kuratowski: u64,
     num_check_obs: u64,
+    num_k5: u64,
 }
 
 impl LevelData {
@@ -52,6 +53,7 @@ impl LevelData {
             num_calls: 0,
             num_kuratowski: 0,
             num_check_obs: 0,
+            num_k5: 0,
         }
     }
 }
@@ -66,9 +68,6 @@ fn is_obstruction(graph: &Graph16, k: Graph16) -> bool {
     for (u, v) in graph.edges() {
         let mut subgraph = graph.clone();
         subgraph.del_edge(u, v);
-        if !subgraph.is_connected() {
-            continue
-        }
         if subgraph.is_supergraph(&k) {
             if sgtk::toroidal::find_embedding_with_subgraph(&subgraph, k.clone()).is_none() {
                 return false
@@ -115,6 +114,7 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             dbg!(level_data.borrow().num_superset);
             dbg!(level_data.borrow().num_kuratowski);
             dbg!(level_data.borrow().num_check_obs);
+            dbg!(level_data.borrow().num_k5);
         }
         let siblings = graph.siblings(n-1);
         level_data.borrow_mut().num_total += 1;
@@ -222,6 +222,8 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
 
         if is_k33(&k) {
             level_data.borrow_mut().subgraphs[n] = Some(k);
+        } else {
+            level_data.borrow_mut().num_k5 += 1;
         }
 
         level_data.borrow_mut().num_calls += 1;
@@ -236,10 +238,12 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             level_data.borrow_mut().num_toroidal += 1;
             0
         } else {
+            /*
             level_data.borrow_mut().num_check_obs += 1;
             if is_obstruction(&graph, k.clone()) {
                 println!("{}", sgtk::parse::to_graph6(&graph));
             }
+            */
             level_data.borrow_mut().num_non_toroidal += 1;
             level_data.borrow_mut().siblings[n].insert(siblings);
             1
