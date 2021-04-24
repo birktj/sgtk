@@ -144,7 +144,12 @@ pub fn find_embedding_with_subgraph_connected<G: Graph>(graph: &G, h: G) -> Opti
         }
     }
 
-    for embedding in G::Embedding::enumerate(&h).filter(|embedding| embedding.genus() == 1) {
+    let node_count = h_nodes.count();
+    let edge_count = h.edges().count();
+
+    for embedding in G::Embedding::enumerate(&h)
+        .filter(|embedding| (3 + edge_count - node_count - embedding.faces().count())/2 == 1) 
+    {
         if let Ok(res) = search_embedding::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
             if let Some(embedding) = res {
                 return Some(embedding)
