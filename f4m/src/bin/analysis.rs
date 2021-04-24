@@ -36,7 +36,7 @@ fn is_obstruction(graph: &Graph32) -> bool {
     if sgtk::toroidal::find_embedding(graph).is_some() {
         return false
     }
-    for subgraph in subgraphs(graph).filter(|g| g.is_connected()) {
+    for subgraph in subgraphs(graph) {
         if sgtk::toroidal::find_embedding(&subgraph).is_none() {
             return false
         }
