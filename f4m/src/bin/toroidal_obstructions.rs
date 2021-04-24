@@ -31,11 +31,14 @@ fn find_toroidal_obstruction<G: Graph + Ord>(mut graph: G, subgraph: Option<G>) 
         }
     }
 
-    for minor in subgraphs(&graph).filter(|minor| minor.is_connected()) {
-        if sgtk::planar::fastdmp(&minor).is_some() {
+    for minor in subgraphs(&graph) {
+        let supergraph = subgraph.as_ref()
+            .map(|g| minor.is_supergraph(&g))
+            .unwrap_or(false);
+        if !supergraph && sgtk::planar::find_embedding(&minor).is_some() {
             continue
         }
-        let h = subgraph.clone().filter(|g| minor.is_supergraph(&g))
+        let h = subgraph.clone().filter(|_| supergraph)
             .unwrap_or_else(|| sgtk::toroidal::find_kuratowski(minor.clone()));
         if sgtk::toroidal::find_embedding_with_subgraph(&minor, h.clone()).is_none() {
             return find_toroidal_obstruction(minor, Some(h))
