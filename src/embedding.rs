@@ -48,6 +48,17 @@ pub trait RotationSystem<G: Graph>: Sized + Clone {
         nodes
     }
 
+    fn face_with_duplicated_nodes(&self, face: Face) -> bool {
+        let mut nodes = G::Set::new();
+        for (u, _) in self.face(face) {
+            if nodes.get(u) {
+                return true
+            }
+            nodes.set(u);
+        }
+        false
+    }
+
     fn after(&self, u: usize, v: usize) -> usize;
 
     fn before(&self, u: usize, v: usize) -> usize;
