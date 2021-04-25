@@ -10,12 +10,12 @@ pub fn find_kuratowski<G: Graph>(mut graph: G) -> G {
         graph.del_edge(u, v);
         if !graph.is_connected() {
             for component in graph.clone().components() {
-                if dmp_wrapper2(&component).is_none() {
+                if planar::fastdmp(&component).is_none() {
                     graph = component;
                     break;
                 }
             }
-        } else if dmp_wrapper2(&graph).is_some() {
+        } else if planar::fastdmp(&graph).is_some() {
             graph.add_edge(u, v);
         }
     }
@@ -40,125 +40,171 @@ pub fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G, h_nodes: &'a G::Set
         }))
 }
 
-#[inline(never)]
-fn dmp_wrapper<G: Graph>(graph: &G) -> Option<G::Embedding> {
-    planar::fastdmp(graph)
+pub struct Embedder<G: Graph> {
+    subgraph: Option<G>,
+    subgraph_embeddings: Vec<G::Embedding>,
 }
 
-#[inline(never)]
-fn dmp_wrapper2<G: Graph>(graph: &G) -> Option<G::Embedding> {
-    planar::fastdmp(graph)
+pub struct EmbeddingResult<G: Graph> {
+    pub embedding: Option<G::Embedding>,
+    pub filtered_embeddings: Vec<bool>,
+}
+
+impl<G: Graph> EmbeddingResult<G> {
+    fn empty() -> Self {
+        Self {
+            embedding: None,
+            filtered_embeddings: Vec::new(),
+        }
+    }
+}
+
+impl<G: Graph> Embedder<G> {
+    pub fn new() -> Self {
+        Self {
+            subgraph: None,
+            subgraph_embeddings: Vec::new(),
+        }
+    }
+
+    pub fn add_subgraph(&mut self, subgraph: G) {
+        self.subgraph = Some(subgraph);
+    }
+
+    pub fn add_subgraph_embeddings(&mut self, embeddings: &[G::Embedding]) {
+        self.subgraph_embeddings = embeddings.to_owned();
+    }
+
+    pub fn find_embedding(self, graph: &G) -> EmbeddingResult<G> {
+        let node_count = graph.nodes().count();
+        let edge_count = graph.edges().count();
+
+        if edge_count > 3*node_count {
+            return EmbeddingResult::empty()
+        }
+
+        if graph.is_connected() {
+            if let Some(embedding) = planar::fastdmp(graph) {
+                return EmbeddingResult {
+                    embedding: Some(embedding),
+                    filtered_embeddings: Vec::new(),
+                }
+            }
+            self.find_embedding_connected(graph)
+        } else {
+            let mut embedding = G::Embedding::empty();
+            let mut non_planar_component = None;
+            for component in graph.to_owned().components() {
+                if let Some(planar) = planar::fastdmp(&component) {
+                    embedding.embed_disconnected(&planar);
+                } else if non_planar_component.is_none() {
+                    non_planar_component = Some(component)
+                } else {
+                    return EmbeddingResult::empty()
+                }
+            }
+            if let Some(component) = non_planar_component {
+                let mut res = self.find_embedding_connected(&component);
+                res.embedding.as_mut().map(|e| e.embed_disconnected(&embedding));
+                res
+            } else {
+                EmbeddingResult {
+                    embedding: Some(embedding),
+                    filtered_embeddings: Vec::new(),
+                }
+            }
+        }
+    }
+
+    fn find_embedding_connected(self, graph: &G) -> EmbeddingResult<G> {
+        let node_count = graph.nodes().count();
+        let edge_count = graph.edges().count();
+
+        if edge_count > 3*node_count {
+            return EmbeddingResult::empty()
+        }
+
+        let h = self.subgraph.clone()
+            .filter(|h| graph.is_supergraph(&h))
+            .unwrap_or_else(|| {
+                find_kuratowski(graph.clone())
+            });
+
+        if self.subgraph_embeddings.is_empty() {
+            let node_count = h.nodes().count();
+            let edge_count = h.edges().count();
+
+            self.find_embedding_with_embeddings(graph, &h, G::Embedding::enumerate(&h)
+                .filter(|embedding| (3 + edge_count - node_count - embedding.faces().count())/2 == 1))
+        } else {
+            let subgraph_embeddings = self.subgraph_embeddings.clone().into_iter();
+            self.find_embedding_with_embeddings(graph, &h, subgraph_embeddings)
+        }
+    }
+
+    fn find_embedding_with_embeddings<I: Iterator<Item = G::Embedding>>(self, graph: &G, h: &G, subgraph_embeddings: I) -> EmbeddingResult<G> {
+        let mut filtered_embeddings = vec![false; self.subgraph_embeddings.len()];
+        let mut i = 0;
+
+        let h_nodes = h.nodes();
+
+        let mut bridges = Vec::new();
+
+        for bridge in compute_bridges(graph, h, &h_nodes) {
+            let attachments = h_nodes.intersection(&bridge.nodes());
+            let mut test_bridge = bridge.clone();
+            test_bridge.merge_nodes(&attachments);
+            if crate::planar::fastdmp(&test_bridge).is_none() {
+                return EmbeddingResult::empty()
+            }
+            bridges.push(bridge);
+            /*
+            if attachments.count() <= 2 && bridge.nodes().count() > attachments.count() {
+                let mut new_bridge = G::empty();
+                for u in attachments.iter() {
+                    new_bridge.add_node(u);
+                }
+                let u = bridge.nodes().intersection(&attachments.invert()).smallest().unwrap();
+                new_bridge.add_node(u);
+                new_bridge.add_edges(u, &attachments);
+                bridges.push(bridge);
+            } else {
+                bridges.push(bridge);
+            }
+            */
+        }
+
+
+        for embedding in subgraph_embeddings {
+            if let Ok(res) = search_embedding::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
+                if let Some(embedding) = res {
+                    return EmbeddingResult {
+                        embedding: Some(embedding),
+                        filtered_embeddings
+                    }
+                }
+            } else if let Some(embedding) = search_embedding::<G, DynIntSet, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, &bridges).unwrap() {
+                return EmbeddingResult {
+                    embedding: Some(embedding),
+                    filtered_embeddings
+                }
+            }
+
+            if i < filtered_embeddings.len() {
+                filtered_embeddings[i] = true;
+                i += 1;
+            }
+        }
+
+        EmbeddingResult {
+            embedding: None,
+            filtered_embeddings
+        }
+    }
 }
 
 pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
-    if graph.is_connected() {
-        find_embedding_connected(graph)
-    } else {
-        let mut embedding = G::Embedding::empty();
-        let mut torus_part = false;
-        for component in graph.to_owned().components() {
-            if let Some(planar) = planar::fastdmp(&component) {
-                embedding.embed_disconnected(&planar);
-            } else if !torus_part {
-                torus_part = true;
-                embedding.embed_disconnected(&find_embedding_connected(&component)?);
-            } else {
-                return None
-            }
-
-        }
-        Some(embedding)
-    }
-}
-
-fn find_embedding_connected<G: Graph>(graph: &G) -> Option<G::Embedding> {
-    let node_count = graph.nodes().count();
-    let edge_count = graph.edges().count();
-
-    if edge_count > 3*node_count {
-        return None
-    }
-
-    if let Some(embedding) = dmp_wrapper(graph) {
-        return Some(embedding)
-    }
-
-    let h = find_kuratowski(graph.to_owned());
-
-    find_embedding_with_subgraph_connected(graph, h)
-}
-
-pub fn find_embedding_with_subgraph<G: Graph>(graph: &G, h: G) -> Option<G::Embedding> {
-    if graph.is_connected() {
-        find_embedding_with_subgraph_connected(graph, h)
-    } else {
-        let mut embedding = G::Embedding::empty();
-        let mut torus_part = false;
-        for component in graph.to_owned().components() {
-            if let Some(planar) = planar::fastdmp(&component) {
-                embedding.embed_disconnected(&planar);
-            } else if !torus_part && component.is_supergraph(&h) {
-                torus_part = true;
-                embedding.embed_disconnected(&find_embedding_with_subgraph_connected(&component, h.clone())?);
-            } else if !torus_part {
-                torus_part = true;
-                embedding.embed_disconnected(&find_embedding_connected(&component)?);
-            } else {
-                return None
-            }
-
-        }
-        Some(embedding)
-    }
-}
-
-pub fn find_embedding_with_subgraph_connected<G: Graph>(graph: &G, h: G) -> Option<G::Embedding> {
-    let node_count = graph.nodes().count();
-    let edge_count = graph.edges().count();
-
-    if edge_count > 3*node_count {
-        return None
-    }
-    let h_nodes = h.nodes();
-
-    let mut bridges = Vec::new();
-
-    for bridge in compute_bridges(graph, &h, &h_nodes) {
-        let attachments = h_nodes.intersection(&bridge.nodes());
-        let mut test_bridge = bridge.clone();
-        test_bridge.merge_nodes(&attachments);
-        if dmp_wrapper(&test_bridge).is_none() {
-            return None
-        }
-        if attachments.count() <= 2 && bridge.nodes().count() > attachments.count() {
-            let mut new_bridge = G::empty();
-            for u in attachments.iter() {
-                new_bridge.add_node(u);
-            }
-            let u = bridge.nodes().intersection(&attachments.invert()).smallest().unwrap();
-            new_bridge.add_node(u);
-            new_bridge.add_edges(u, &attachments);
-            bridges.push(bridge);
-        } else {
-            bridges.push(bridge);
-        }
-    }
-
-    let node_count = h_nodes.count();
-    let edge_count = h.edges().count();
-
-    for embedding in G::Embedding::enumerate(&h)
-        .filter(|embedding| (3 + edge_count - node_count - embedding.faces().count())/2 == 1) 
-    {
-        if let Ok(res) = search_embedding::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
-            if let Some(embedding) = res {
-                return Some(embedding)
-            }
-        } else if let Some(embedding) = search_embedding::<G, DynIntSet, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, &bridges).unwrap() {
-            return Some(embedding)
-        }
-    }
-    None
+    Embedder::new().find_embedding(graph).embedding
 }
 
 fn search_embedding<G: Graph, S: Intset, SM, BM, FM>(embedding: G::Embedding, bridges: &[G]) -> Result<Option<G::Embedding>, FullMapError>

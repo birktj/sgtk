@@ -40,7 +40,9 @@ fn find_toroidal_obstruction<G: Graph + Ord>(mut graph: G, subgraph: Option<G>) 
         }
         let h = subgraph.clone().filter(|_| supergraph)
             .unwrap_or_else(|| sgtk::toroidal::find_kuratowski(minor.clone()));
-        if sgtk::toroidal::find_embedding_with_subgraph(&minor, h.clone()).is_none() {
+        let mut embedder = sgtk::toroidal::Embedder::new();
+        embedder.add_subgraph(h.clone());
+        if embedder.find_embedding(&minor).embedding.is_none() {
             return find_toroidal_obstruction(minor, Some(h))
         }
     }

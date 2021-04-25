@@ -68,11 +68,9 @@ fn is_obstruction(graph: &Graph16, k: Graph16) -> bool {
     for (u, v) in graph.edges() {
         let mut subgraph = graph.clone();
         subgraph.del_edge(u, v);
-        if subgraph.is_supergraph(&k) {
-            if sgtk::toroidal::find_embedding_with_subgraph(&subgraph, k.clone()).is_none() {
-                return false
-            }
-        } else if sgtk::toroidal::find_embedding(&subgraph).is_none() {
+        let mut embedder = sgtk::toroidal::Embedder::new();
+        embedder.add_subgraph(k.clone());
+        if embedder.find_embedding(graph).embedding.is_none() {
             return false
         }
     }
@@ -199,7 +197,7 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             }
         }
 
-        if let Some(embedding) = found_embedding {
+        if let Some(_embedding) = found_embedding {
             level_data.borrow_mut().num_prev_embedding += 1;
             level_data.borrow_mut().num_toroidal += 1;
             // TODO: see above, must be fixed before we can do this
@@ -227,7 +225,9 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
         }
 
         level_data.borrow_mut().num_calls += 1;
-        if let Some(mut embedding) = sgtk::toroidal::find_embedding_with_subgraph(&graph, k) {
+        let mut embedder = sgtk::toroidal::Embedder::new();
+        embedder.add_subgraph(k);
+        if let Some(mut embedding) = embedder.find_embedding(&graph).embedding {
             level_data.borrow_mut().embeddings[n] = Some(embedding.clone());
             let mut graph = graph.clone();
             graph.del_node(n-1);
@@ -294,6 +294,7 @@ pub extern "C" fn sgtk_is_graph16_planar(raw: *const u16) -> i32 {
     }
 }
 
+/*
 #[no_mangle]
 pub extern "C" fn sgtk_is_graph16_toroidal(raw: *const u16, subgraph: *const u16) -> i32 {
     let graph = graph16_from_pointer(raw);
@@ -312,6 +313,7 @@ pub extern "C" fn sgtk_is_graph16_toroidal(raw: *const u16, subgraph: *const u16
         0
     }
 }
+*/
 
 #[no_mangle]
 pub extern "C" fn sgtk_is_graph16_toroidal_obstruction(raw: *const u16) -> i32 {
