@@ -1,10 +1,10 @@
 use crate::seq::{Seq, SmallSeq, SeqPermutations};
 use crate::bitset::{self, Intset, Bitset};
-use crate::graph::{Graph, BitsetGraph};
+use crate::graph::{self, Graph};
 
-pub type RotationSystem16 = SmallRotationSystem<bitset::Bitset16, 16>;
-pub type RotationSystem32 = SmallRotationSystem<bitset::Bitset32, 32>;
-pub type RotationSystem64 = SmallRotationSystem<bitset::Bitset64, 64>;
+pub type RotationSystem16 = SmallRotationSystem<bitset::Bitset16, graph::Graph16, 16>;
+pub type RotationSystem32 = SmallRotationSystem<bitset::Bitset32, graph::Graph32, 32>;
+pub type RotationSystem64 = SmallRotationSystem<bitset::Bitset64, graph::Graph64, 64>;
 
 #[derive(Copy, Clone, Default, Debug, Eq, PartialEq)]
 pub struct Face {
@@ -186,14 +186,15 @@ impl<'a, G: Graph, R: RotationSystem<G>> Iterator for Faces<'a, G, R> {
 }
 
 #[derive(Copy, Clone)]
-pub struct SmallRotationSystem<B, const N: usize> {
+pub struct SmallRotationSystem<B, G, const N: usize> {
     nodes: B,
     edges: [B; N],
     order: [[u8; N]; N],
     order_inv: [[u8; N]; N],
+    _marker: std::marker::PhantomData<G>,
 }
 
-impl<B: Bitset, const N: usize> SmallRotationSystem<B, N> {
+impl<B: Bitset, G, const N: usize> SmallRotationSystem<B, G, N> {
     pub fn siblings<'a>(&'a self, u: usize) -> impl 'a + Iterator<Item = usize> {
         let mut v = self.edges[u].smallest();
         let v0 = v;
@@ -215,8 +216,8 @@ impl<B: Bitset, const N: usize> SmallRotationSystem<B, N> {
 }
 
 
-impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for SmallRotationSystem<B, N> {
-    type EnumIter = SmallRotationSystemEnumerate<B, N>;
+impl<B: Bitset + Copy, G: Graph<Set = B>, const N: usize> RotationSystem<G> for SmallRotationSystem<B, G, N> {
+    type EnumIter = SmallRotationSystemEnumerate<B, G, N>;
     type FacesIter = SmallFacesIter<B, N>;
 
     fn empty() -> Self {
@@ -225,10 +226,11 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
             edges: [B::new(); N],
             order: [[0; N]; N],
             order_inv: [[0; N]; N],
+            _marker: std::marker::PhantomData,
         }
     }
 
-    fn simple(graph: &BitsetGraph<B, N>) -> Self {
+    fn simple(graph: &G) -> Self {
         let nodes = graph.nodes();
         let mut edges = [B::new(); N];
         let mut order = [[0; N]; N];
@@ -249,10 +251,11 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
             edges,
             order,
             order_inv,
+            _marker: std::marker::PhantomData,
         }
     }
 
-    fn enumerate(graph: &BitsetGraph<B, N>) -> SmallRotationSystemEnumerate<B, N> {
+    fn enumerate(graph: &G) -> SmallRotationSystemEnumerate<B, G, N> {
         let curr = Self::simple(graph);
         let permutations = [SeqPermutations::empty(); N];
 
@@ -273,8 +276,8 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
         enumerate
     }
 
-    fn to_graph(&self) -> BitsetGraph<B, N> {
-        let mut graph = BitsetGraph::empty();
+    fn to_graph(&self) -> G {
+        let mut graph = G::empty();
         for u in self.nodes.iter() {
             graph.add_node(u);
         }
@@ -287,14 +290,14 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
     }
 
     fn genus(&self) -> usize {
-        let graph = self.to_graph();
+        let graph: G = self.to_graph();
         let edge_count = graph.edges().count();
         let component_count = graph.components().count();
         let face_count = std::cmp::max(1, self.faces().count());
         (3 + edge_count + component_count - 1 - self.nodes.count() - face_count) / 2
     }
 
-    fn faces<'a>(&'a self) -> Faces<'a, BitsetGraph<B, N>, Self> {
+    fn faces<'a>(&'a self) -> Faces<'a, G, Self> {
         Faces {
             embedding: self,
             iter: SmallFacesIter {
@@ -367,7 +370,7 @@ impl<B: Bitset + Copy, const N: usize> RotationSystem<BitsetGraph<B, N>> for Sma
     }
 }
 
-impl<B: Bitset + std::fmt::Debug, const N: usize> std::fmt::Debug for SmallRotationSystem<B, N> {
+impl<B: Bitset + std::fmt::Debug, G, const N: usize> std::fmt::Debug for SmallRotationSystem<B, G, N> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_map().entries(self.nodes.iter().map(|u| {
             (u, self.siblings(u).collect::<Vec<_>>())
@@ -380,9 +383,9 @@ pub struct SmallFacesIter<B, const N: usize> {
     visited: B,
 }
 
-impl<B: Bitset + Copy, const N: usize> FacesIter<BitsetGraph<B, N>, SmallRotationSystem<B, N>> for SmallFacesIter<B, N> {
+impl<B: Bitset + Copy, G: Graph<Set = B>, const N: usize> FacesIter<G, SmallRotationSystem<B, G, N>> for SmallFacesIter<B, N> {
     #[inline]
-    fn next_face(&mut self, embedding: &SmallRotationSystem<B, N>) -> Option<Face> {
+    fn next_face(&mut self, embedding: &SmallRotationSystem<B, G, N>) -> Option<Face> {
         while let Some(u) = embedding.nodes.intersection(&self.visited.invert()).smallest() {
             if let Some(v) = embedding.edges[u]
                 .intersection(&self.used[u].invert())
@@ -400,13 +403,13 @@ impl<B: Bitset + Copy, const N: usize> FacesIter<BitsetGraph<B, N>, SmallRotatio
     }
 }
 
-pub struct SmallRotationSystemEnumerate<B, const N: usize> {
+pub struct SmallRotationSystemEnumerate<B, G, const N: usize> {
     flip_node: Option<usize>,
-    curr: SmallRotationSystem<B, N>,
+    curr: SmallRotationSystem<B, G, N>,
     permutations: [SeqPermutations<N>; N],
 }
 
-impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
+impl<B: Bitset, G, const N: usize> SmallRotationSystemEnumerate<B, G, N> {
     #[inline]
     fn new_perm(&mut self, i: usize) {
         let mut seq: SmallSeq<N> = SmallSeq::new();
@@ -446,11 +449,11 @@ impl<B: Bitset, const N: usize> SmallRotationSystemEnumerate<B, N> {
     }
 }
 
-impl<B: Bitset, const N: usize> Iterator for SmallRotationSystemEnumerate<B, N> {
-    type Item = SmallRotationSystem<B, N>;
+impl<B: Bitset, G: Clone, const N: usize> Iterator for SmallRotationSystemEnumerate<B, G, N> {
+    type Item = SmallRotationSystem<B, G, N>;
 
     #[inline]
-    fn next(&mut self) -> Option<SmallRotationSystem<B, N>> {
+    fn next(&mut self) -> Option<SmallRotationSystem<B, G, N>> {
         for i in self.curr.nodes.iter().rev() {
             while self.next_perm(i) {
                 for j in self.curr.nodes.intersection(&B::mask_ge(i+1)).iter() {
