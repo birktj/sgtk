@@ -40,6 +40,25 @@ pub fn compute_bridges<'a, G: Graph>(graph: &'a G, h: &'a G, h_nodes: &'a G::Set
         }))
 }
 
+use crate::smallvec::Smallvec;
+pub fn graph16_bridges(graph: &crate::graph::Graph16, h: &crate::graph::Graph16) -> Smallvec<crate::graph::Graph16, 16> {
+    let mut res = Smallvec::new();
+    //for bridge in compute_bridges(graph, h, &h.nodes()) {
+    //for mut c in graph.subgraph(&h.nodes().invert()).components() {
+    //for mut c in graph.components() {
+    let h_nodes = h.nodes();
+    for (u, v) in graph.edges_from_to(h_nodes, h_nodes) {
+        let mut bridge = crate::graph::Graph16::empty();
+        bridge.add_node(u);
+        bridge.add_node(v);
+        bridge.add_edge(u, v);
+
+        //c.union(&graph.neighbouring(&c.nodes()).bipartite_split(&c.nodes(), &h.nodes()));
+        res.push(bridge);
+    }
+    res
+}
+
 pub struct Embedder<G: Graph> {
     subgraph: Option<G>,
     subgraph_embeddings: Vec<G::Embedding>,

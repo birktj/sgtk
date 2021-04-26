@@ -4,6 +4,12 @@ use crate::seq::{self, Seq};
 use crate::permutation::{Permutation, SmallPerm};
 use crate::embedding::{RotationSystem, SmallRotationSystem};
 
+#[cfg(all(target_arch = "x86_64", target_feature="avx2"))]
+pub mod avx2;
+
+#[cfg(all(target_arch = "x86_64", target_feature="avx2"))]
+pub use avx2::Graph16;
+#[cfg(not(all(target_arch = "x86_64", target_feature="avx2")))]
 pub type Graph16 = BitsetGraph<bitset::Bitset16, 16>;
 pub type Graph32 = BitsetGraph<bitset::Bitset32, 32>;
 pub type Graph64 = BitsetGraph<bitset::Bitset64, 64>;
@@ -158,7 +164,7 @@ pub trait Graph: Sized + Clone {
             g: self,
             u: 0,
             to,
-            from ,
+            from_inv: from.invert(),
             iter_u,
             iter_v: Self::Set::new().iter(),
         }
@@ -449,7 +455,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
     type Set = B;
     type Path = seq::SmallSeq<N>;
     type Coloring = SmallColoring<B, N>;
-    type Embedding = SmallRotationSystem<B, N>;
+    type Embedding = SmallRotationSystem<B, Self, N>;
 
     fn empty() -> Self {
         Self {
@@ -585,6 +591,7 @@ impl<B: Bitset + Copy, const N: usize> Graph for BitsetGraph<B, N> {
 
     #[inline]
     fn difference(&mut self, other: &Self) {
+        // FIXME: something is wrong here
         for i in 0..N {
             self.g[i] = self.g[i].difference(&other.g[i]);
             self.g[i].set_val(i, !(self.g[i].get(i) && other.g[i].get(i)));
@@ -618,7 +625,7 @@ pub struct EdgeIter<'a, G: Graph> {
     g: &'a G,
     u: usize,
     to: G::Set,
-    from: G::Set,
+    from_inv: G::Set,
     iter_u: <G::Set as Bitset>::Iter,
     iter_v: <G::Set as Bitset>::Iter,
 }
@@ -629,13 +636,11 @@ impl<'a, G: Graph> Iterator for EdgeIter<'a, G> {
     #[inline]
     fn next(&mut self) -> Option<(usize, usize)> {
         loop {
-            while let Some(v) = self.iter_v.next() {
-                if self.g.has_edge(self.u, v) {
-                    return Some((self.u, v))
-                }
+            if let Some(v) = self.iter_v.next() {
+                return Some((self.u, v))
             }
             self.u = self.iter_u.next()?;
-            let mask = self.to.intersection(&self.from.invert().union(&G::Set::mask_le(self.u)));
+            let mask = self.to.intersection(&G::Set::mask_le(self.u));
             self.iter_v = self.g.siblings(self.u).intersection(&mask).iter();
         }
     }

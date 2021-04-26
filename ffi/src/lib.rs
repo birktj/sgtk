@@ -25,6 +25,7 @@ fn graph16_to_pointer(graph: &Graph16, out: *mut u16) {
 struct LevelData {
     embeddings: [Option<RotationSystem16>; 16],
     subgraphs: [Option<Graph16>; 16],
+    subgraph_embeddings: Vec<Vec<RotationSystem16>>,
     subgraphs2: Vec<HashMap<Bitset16, Graph16>>,
     siblings: Vec<HashSet<Bitset16>>,
     num_total: u64,
@@ -34,8 +35,10 @@ struct LevelData {
     num_calls: u64,
     num_superset: u64,
     num_kuratowski: u64,
+    num_prev_kuratowski: u64,
     num_check_obs: u64,
     num_k5: u64,
+    num_subgraph_embeddings: u64,
 }
 
 impl LevelData {
@@ -43,6 +46,7 @@ impl LevelData {
         Self {
             embeddings: [None; 16],
             subgraphs: [None; 16],
+            subgraph_embeddings: vec![Vec::new(); 16],
             subgraphs2: vec![HashMap::new(); 16],
             siblings: vec![HashSet::new(); 16],
             num_total: 0,
@@ -52,8 +56,10 @@ impl LevelData {
             num_superset: 0,
             num_calls: 0,
             num_kuratowski: 0,
+            num_prev_kuratowski: 0,
             num_check_obs: 0,
             num_k5: 0,
+            num_subgraph_embeddings: 0,
         }
     }
 }
@@ -111,14 +117,16 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             dbg!(level_data.borrow().num_prev_embedding);
             dbg!(level_data.borrow().num_superset);
             dbg!(level_data.borrow().num_kuratowski);
+            dbg!(level_data.borrow().num_prev_kuratowski);
             dbg!(level_data.borrow().num_check_obs);
             dbg!(level_data.borrow().num_k5);
+            dbg!(level_data.borrow().num_subgraph_embeddings);
         }
+        let mut computed_k = false;
+        let mut subgraph_embeddings: Option<Vec<RotationSystem16>> = None;
         let siblings = graph.siblings(n-1);
         level_data.borrow_mut().num_total += 1;
-        let k = level_data.borrow().subgraphs[n-1].clone();
-        let mut k = k.or_else(|| level_data.borrow().subgraphs[n].clone()
-            .filter(|k| graph.is_supergraph(&k)));
+        let mut k = level_data.borrow().subgraphs[n-1].clone();
     
         if k.is_none() {
             for u in siblings {
@@ -131,7 +139,13 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             }
         }
 
+        if n == maxn {
+            k = k.or_else(|| level_data.borrow().subgraphs[n].clone()
+                .filter(|k| graph.is_supergraph(&k)));
+        }
+
         level_data.borrow_mut().subgraphs[n] = k.clone();
+        level_data.borrow_mut().subgraph_embeddings[n] = Vec::new();
         level_data.borrow_mut().subgraphs2[n+1] = HashMap::new();
         if let Some(subgraph) = &k {
             level_data.borrow_mut().subgraphs2[n].insert(siblings.clone(), subgraph.clone());
@@ -155,13 +169,24 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
 
             k = k.or_else(|| {
                     level_data.borrow_mut().num_kuratowski += 1;
+                    computed_k = true;
                     Some(sgtk::toroidal::find_kuratowski(graph))
                 });
 
             if is_k33(k.as_ref().unwrap()) {
-                level_data.borrow_mut().subgraphs[n] = k.clone();
+                subgraph_embeddings = Some(
+                    sgtk::embedding::RotationSystem16::enumerate(k.as_ref().unwrap())
+                    .filter(|e| e.genus() == 1)
+                    .collect());
             }
         }
+
+        level_data.borrow_mut().subgraphs[n] = k.clone().filter(|k| is_k33(k));
+
+        let subgraph_embeddings = subgraph_embeddings
+            .unwrap_or_else(|| level_data.borrow().subgraph_embeddings[n-1].clone());
+
+        level_data.borrow_mut().subgraph_embeddings[n] = subgraph_embeddings.clone();
 
         let mut found_superset = false;
         for u in siblings {
@@ -215,6 +240,7 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
 
         let k = k.unwrap_or_else(|| {
                 level_data.borrow_mut().num_kuratowski += 1;
+                computed_k = true;
                 sgtk::toroidal::find_kuratowski(graph)
             });
 
@@ -224,11 +250,27 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             level_data.borrow_mut().num_k5 += 1;
         }
 
+        if !computed_k {
+            level_data.borrow_mut().num_prev_kuratowski += 1;
+        }
+
         level_data.borrow_mut().num_calls += 1;
         let mut embedder = sgtk::toroidal::Embedder::new();
         embedder.add_subgraph(k);
-        if let Some(mut embedding) = embedder.find_embedding(&graph).embedding {
+        if !subgraph_embeddings.is_empty() {
+            level_data.borrow_mut().num_subgraph_embeddings += 1;
+            embedder.add_subgraph_embeddings(&subgraph_embeddings);
+        }
+        let res = embedder.find_embedding(&graph);
+        if let Some(mut embedding) = res.embedding {
             level_data.borrow_mut().embeddings[n] = Some(embedding.clone());
+            if !res.filtered_embeddings.is_empty() {
+                level_data.borrow_mut().subgraph_embeddings[n] = subgraph_embeddings.into_iter()
+                    .enumerate()
+                    .filter(|(i, _)| !res.filtered_embeddings[*i])
+                    .map(|(_, e)| e)
+                    .collect();
+            }
             let mut graph = graph.clone();
             graph.del_node(n-1);
             embedding.remove_node(n-1);

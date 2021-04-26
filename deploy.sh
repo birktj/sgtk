@@ -6,9 +6,9 @@ ssh bt399@login-cpu.hpc.cam.ac.uk <<EOF
 cd toroidal-search
 tar -xf sgtk.tar.gz
 cd sgtk/f4m
-cargo build --release
+RUSTFLAGS="-C target-cpu=native" cargo build --release
 cd ../ffi
-cargo build --release
+RUSTFLAGS="-C target-cpu=native" cargo build --release
 cd ../geng-search
 make clean
 make toroidal-geng
