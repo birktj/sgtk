@@ -62,6 +62,7 @@ pub fn graph16_bridges(graph: &crate::graph::Graph16, h: &crate::graph::Graph16)
 pub struct Embedder<G: Graph> {
     subgraph: Option<G>,
     subgraph_embeddings: Vec<G::Embedding>,
+    pub filter_all: bool,
 }
 
 pub struct EmbeddingResult<G: Graph> {
@@ -83,6 +84,7 @@ impl<G: Graph> Embedder<G> {
         Self {
             subgraph: None,
             subgraph_embeddings: Vec::new(),
+            filter_all: false,
         }
     }
 
@@ -193,30 +195,32 @@ impl<G: Graph> Embedder<G> {
             */
         }
 
+        let mut res_embedding = None;
 
         for embedding in subgraph_embeddings {
             if let Ok(res) = search_embedding::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
                 if let Some(embedding) = res {
-                    return EmbeddingResult {
-                        embedding: Some(embedding),
-                        filtered_embeddings
+                    res_embedding = Some(embedding);
+                    if !self.filter_all {
+                        break
                     }
+                } else if i < filtered_embeddings.len() {
+                    filtered_embeddings[i] = true;
                 }
             } else if let Some(embedding) = search_embedding::<G, DynIntSet, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, &bridges).unwrap() {
-                return EmbeddingResult {
-                    embedding: Some(embedding),
-                    filtered_embeddings
+                res_embedding = Some(embedding);
+                if !self.filter_all {
+                    break
                 }
+            } else if i < filtered_embeddings.len() {
+                filtered_embeddings[i] = true;
             }
 
-            if i < filtered_embeddings.len() {
-                filtered_embeddings[i] = true;
-                i += 1;
-            }
+            i += 1;
         }
 
         EmbeddingResult {
-            embedding: None,
+            embedding: res_embedding,
             filtered_embeddings
         }
     }

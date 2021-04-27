@@ -266,10 +266,13 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             level_data.borrow_mut().num_subgraph_embeddings += 1;
             embedder.add_subgraph_embeddings(&subgraph_embeddings);
         }
+        if n < maxn {
+            embedder.filter_all = true;
+        }
         let res = embedder.find_embedding(&graph);
         if let Some(mut embedding) = res.embedding {
             level_data.borrow_mut().embeddings[n] = Some(embedding.clone());
-            if !res.filtered_embeddings.is_empty() {
+            if !res.filtered_embeddings.is_empty() && n < maxn {
                 level_data.borrow_mut().subgraph_embeddings[n] = subgraph_embeddings.into_iter()
                     .enumerate()
                     .filter(|(i, _)| !res.filtered_embeddings[*i])
