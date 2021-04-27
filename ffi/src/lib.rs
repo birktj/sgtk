@@ -7,19 +7,24 @@ use std::collections::{HashSet, HashMap};
 
 fn graph16_from_pointer(raw: *const u16) -> Graph16 {
     let raw = unsafe { std::slice::from_raw_parts(raw, 16) };
+    /*
     let mut graph = [sgtk::bitset::Bitset16::new(); 16];
     for (i, u) in raw.iter().enumerate() {
         graph[i] = sgtk::bitset::Bitset16::from_u16(*u);
     }
-    sgtk::graph::Graph16::from_raw(&graph)
+    */
+    sgtk::graph::Graph16::from_raw(&raw)
 }
 
 fn graph16_to_pointer(graph: &Graph16, out: *mut u16) {
     let raw = graph.to_raw();
     let out = unsafe { std::slice::from_raw_parts_mut(out, 16) };
+    out.copy_from_slice(&raw);
+    /*
     for (i, v) in raw.iter().enumerate() {
         out[i] = v.to_u16();
     }
+    */
 }
 
 struct LevelData {
