@@ -1,5 +1,5 @@
 #! /bin/bash
-tar --transform "s/^/sgtk\//" -cf sgtk.tar.gz src Cargo.toml .cargo tests ffi/src ffi/Cargo.toml ffi/.cargo f4m/src f4m/Cargo.toml f4m/.cargo geng-search
+tar --transform "s/^/sgtk\//" -cf sgtk.tar.gz src Cargo.toml .cargo tests benches ffi/src ffi/Cargo.toml ffi/.cargo f4m/src f4m/Cargo.toml f4m/.cargo geng-search
 scp sgtk.tar.gz bt399@login-cpu.hpc.cam.ac.uk:~/toroidal-search
 
 ssh bt399@login-cpu.hpc.cam.ac.uk <<EOF
