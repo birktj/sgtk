@@ -127,10 +127,19 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             dbg!(level_data.borrow().num_k5);
             dbg!(level_data.borrow().num_subgraph_embeddings);
         }
+
+        level_data.borrow_mut().num_total += 1;
+
+        let edge_count = graph.edges().count();
+        if edge_count > n*3 + 1 {
+            level_data.borrow_mut().num_non_toroidal += 1;
+            return 1
+        }
+
+
         let mut computed_k = false;
         let mut subgraph_embeddings: Option<Vec<RotationSystem16>> = None;
         let siblings = graph.siblings(n-1);
-        level_data.borrow_mut().num_total += 1;
         let mut k = level_data.borrow().subgraphs[n-1].clone();
     
         if k.is_none() {
