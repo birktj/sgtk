@@ -178,6 +178,10 @@ pub trait Graph: Sized + Clone {
         self.edges_from_to(from, self.nodes())
     }
 
+    fn edges_count(&self) -> usize {
+        self.edges().count()
+    }
+
     fn subgraph(&self, selected: &Self::Set) -> Self;
 
     fn is_supergraph(&self, other: &Self) -> bool;

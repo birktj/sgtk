@@ -291,7 +291,7 @@ impl<B: Bitset + Copy, G: Graph<Set = B>, const N: usize> RotationSystem<G> for 
 
     fn genus(&self) -> usize {
         let graph: G = self.to_graph();
-        let edge_count = graph.edges().count();
+        let edge_count = graph.edges_count();
         let component_count = graph.components().count();
         let face_count = std::cmp::max(1, self.faces().count());
         (3 + edge_count + component_count - 1 - self.nodes.count() - face_count) / 2

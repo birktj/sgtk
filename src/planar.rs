@@ -48,7 +48,7 @@ fn dmp_inner<G: Graph, B: Intset, SM: Slotmap<Output = B>, BM: Slotmap<Output = 
           for<'a> &'a B: IntoIterator<Item = usize>,
 {
     let node_count = graph.nodes().count();
-    let edge_count = graph.edges().count();
+    let edge_count = graph.edges_count();
 
     if node_count >= 3 && edge_count + 6 > 3*node_count {
         return Ok(None)

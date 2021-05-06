@@ -130,7 +130,7 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
 
         level_data.borrow_mut().num_total += 1;
 
-        let edge_count = graph.edges().count();
+        let edge_count = graph.edges_count();
         if edge_count > n*3 + 1 {
             level_data.borrow_mut().num_non_toroidal += 1;
             return 1

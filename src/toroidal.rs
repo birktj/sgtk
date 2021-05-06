@@ -98,7 +98,7 @@ impl<G: Graph> Embedder<G> {
 
     pub fn find_embedding(self, graph: &G) -> EmbeddingResult<G> {
         let node_count = graph.nodes().count();
-        let edge_count = graph.edges().count();
+        let edge_count = graph.edges_count();
 
         if edge_count > 3*node_count {
             return EmbeddingResult::empty()
@@ -139,7 +139,7 @@ impl<G: Graph> Embedder<G> {
 
     fn find_embedding_connected(self, graph: &G) -> EmbeddingResult<G> {
         let node_count = graph.nodes().count();
-        let edge_count = graph.edges().count();
+        let edge_count = graph.edges_count();
 
         if edge_count > 3*node_count {
             return EmbeddingResult::empty()
@@ -153,7 +153,7 @@ impl<G: Graph> Embedder<G> {
 
         if self.subgraph_embeddings.is_empty() {
             let node_count = h.nodes().count();
-            let edge_count = h.edges().count();
+            let edge_count = h.edges_count();
 
             self.find_embedding_with_embeddings(graph, &h, G::Embedding::enumerate(&h)
                 .filter(|embedding| (3 + edge_count - node_count - embedding.faces().count())/2 == 1))

@@ -234,6 +234,19 @@ impl Graph for Graph16 {
     }
 
     #[inline]
+    fn edges_count(&self) -> usize {
+        unsafe {
+            let ptr = self.g.as_ptr() as *const u64;
+            let raw = std::slice::from_raw_parts(ptr, 4);
+            let cnt = raw[0].count_ones()
+                    + raw[1].count_ones()
+                    + raw[2].count_ones()
+                    + raw[3].count_ones();
+            (cnt as usize - self.nodes().count()) / 2
+        }
+    }
+
+    #[inline]
     fn shuffle(&mut self, permutation: &Self::Perm) {
         let old = self.g;
 
