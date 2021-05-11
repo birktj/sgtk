@@ -69,7 +69,7 @@ impl LevelData {
     }
 }
 
-fn is_obstruction(graph: &Graph16, k: Graph16) -> bool {
+fn is_obstruction(graph: &Graph16, k: Graph16, subgraph_embeddings: &[RotationSystem16]) -> bool {
     for u in graph.nodes().iter() {
         if graph.siblings(u).count() < 3 {
             return false
@@ -80,8 +80,13 @@ fn is_obstruction(graph: &Graph16, k: Graph16) -> bool {
         let mut subgraph = graph.clone();
         subgraph.del_edge(u, v);
         let mut embedder = sgtk::toroidal::Embedder::new();
-        embedder.add_subgraph(k.clone());
-        if embedder.find_embedding(graph).embedding.is_none() {
+        if subgraph.is_supergraph(&k) {
+            embedder.add_subgraph(k.clone());
+            if !subgraph_embeddings.is_empty() {
+                embedder.add_subgraph_embeddings(&subgraph_embeddings);
+            }
+        }
+        if embedder.find_embedding(&subgraph).embedding.is_none() {
             return false
         }
     }
@@ -130,12 +135,11 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
 
         level_data.borrow_mut().num_total += 1;
 
-        let edge_count = graph.edges_count();
-        if edge_count > n*3 + 1 {
-            level_data.borrow_mut().num_non_toroidal += 1;
-            return 1
-        }
-
+        //let edge_count = graph.edges_count();
+        //if edge_count > n*3 + 1 {
+        //    level_data.borrow_mut().num_non_toroidal += 1;
+        //    return 1
+        //}
 
         let mut computed_k = false;
         let mut subgraph_embeddings: Option<Vec<RotationSystem16>> = None;
@@ -296,13 +300,15 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             }
             level_data.borrow_mut().num_toroidal += 1;
             0
-        } else {
-            /*
+        } else if res.remainding_bridges <= 1 {
             level_data.borrow_mut().num_check_obs += 1;
-            if is_obstruction(&graph, k.clone()) {
+            if is_obstruction(&graph, k.clone(), &level_data.borrow().subgraph_embeddings[n-1]) {
                 println!("{}", sgtk::parse::to_graph6(&graph));
             }
-            */
+            level_data.borrow_mut().num_non_toroidal += 1;
+            level_data.borrow_mut().siblings[n].insert(siblings);
+            1
+        } else {
             level_data.borrow_mut().num_non_toroidal += 1;
             level_data.borrow_mut().siblings[n].insert(siblings);
             1

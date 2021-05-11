@@ -68,6 +68,7 @@ pub struct Embedder<G: Graph> {
 pub struct EmbeddingResult<G: Graph> {
     pub embedding: Option<G::Embedding>,
     pub filtered_embeddings: Vec<bool>,
+    pub remainding_bridges: usize,
 }
 
 impl<G: Graph> EmbeddingResult<G> {
@@ -75,6 +76,7 @@ impl<G: Graph> EmbeddingResult<G> {
         Self {
             embedding: None,
             filtered_embeddings: Vec::new(),
+            remainding_bridges: 0,
         }
     }
 }
@@ -109,6 +111,7 @@ impl<G: Graph> Embedder<G> {
                 return EmbeddingResult {
                     embedding: Some(embedding),
                     filtered_embeddings: Vec::new(),
+                    remainding_bridges: 0,
                 }
             }
             self.find_embedding_connected(graph)
@@ -132,6 +135,7 @@ impl<G: Graph> Embedder<G> {
                 EmbeddingResult {
                     embedding: Some(embedding),
                     filtered_embeddings: Vec::new(),
+                    remainding_bridges: 0,
                 }
             }
         }
@@ -196,32 +200,35 @@ impl<G: Graph> Embedder<G> {
         }
 
         let mut res_embedding = None;
+        let mut remainding_bridges = bridges.len();
 
         for embedding in subgraph_embeddings {
-            if let Ok(res) = search_embedding::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
-                if let Some(embedding) = res {
+            match search_embedding(embedding, &bridges) {
+                Ok(embedding) => {
                     res_embedding = Some(embedding);
                     if !self.filter_all {
                         break
                     }
-                } else if i < filtered_embeddings.len() {
-                    filtered_embeddings[i] = true;
+                },
+                Err(bridges_rem) => {
+                    remainding_bridges = std::cmp::min(remainding_bridges, bridges_rem);
+                    if i < filtered_embeddings.len() {
+                        filtered_embeddings[i] = true;
+                    }
                 }
-            } else if let Some(embedding) = search_embedding::<G, DynIntSet, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, &bridges).unwrap() {
-                res_embedding = Some(embedding);
-                if !self.filter_all {
-                    break
-                }
-            } else if i < filtered_embeddings.len() {
-                filtered_embeddings[i] = true;
             }
 
             i += 1;
         }
 
+        if res_embedding.is_some() {
+            remainding_bridges = 0;
+        }
+
         EmbeddingResult {
             embedding: res_embedding,
-            filtered_embeddings
+            filtered_embeddings,
+            remainding_bridges,
         }
     }
 }
@@ -230,7 +237,15 @@ pub fn find_embedding<G: Graph>(graph: &G) -> Option<G::Embedding> {
     Embedder::new().find_embedding(graph).embedding
 }
 
-fn search_embedding<G: Graph, S: Intset, SM, BM, FM>(embedding: G::Embedding, bridges: &[G]) -> Result<Option<G::Embedding>, FullMapError>
+fn search_embedding<G: Graph>(embedding: G::Embedding, bridges: &[G]) -> Result<G::Embedding, usize> {
+    if let Ok(res) = search_embedding_impl::<G, Bitset64, Map64<Bitset64>, Map64<G>, Map64<Face>>(embedding.clone(), &bridges) {
+        res
+    } else {
+        search_embedding_impl::<G, DynIntSet, DynMap<DynIntSet>, DynMap<G>, DynMap<Face>>(embedding, &bridges).unwrap()
+    }
+}
+
+fn search_embedding_impl<G: Graph, S: Intset, SM, BM, FM>(embedding: G::Embedding, bridges: &[G]) -> Result<Result<G::Embedding, usize>, FullMapError>
     where SM: Slotmap<Output = S>,
           BM: Slotmap<Output = G>,
           FM: Slotmap<Output = Face>,
@@ -239,14 +254,15 @@ fn search_embedding<G: Graph, S: Intset, SM, BM, FM>(embedding: G::Embedding, br
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
           for<'a> &'a SM::Output: IntoIterator<Item = usize>,
 {
-    if let Some(mut searcher) = TorusSearcher::<G, S, SM, BM, FM>::new(embedding, bridges)? {
-        if searcher.search()? {
-            Ok(Some(searcher.embedding))
-        } else {
-            Ok(None)
-        }
-    } else {
-        Ok(None)
+    match TorusSearcher::<G, S, SM, BM, FM>::new(embedding, bridges)? {
+        Ok(mut searcher) => {
+            if searcher.search()? {
+                Ok(Ok(searcher.embedding))
+            } else {
+                Ok(Err(searcher.bridges_rem))
+            }
+        },
+        Err(i) => Ok(Err(i)),
     }
 }
 
@@ -271,7 +287,7 @@ impl<G: Graph, S: Intset, SM, BM, FM> TorusSearcher<G, S, SM, BM, FM>
           for<'a> &'a FM: IntoIterator<Item = (usize, &'a Face)>,
           for<'a> &'a SM::Output: IntoIterator<Item = usize>,
 {
-    fn new(embedding: G::Embedding, bridges_list: &[G]) -> Result<Option<Self>, FullMapError> {
+    fn new(embedding: G::Embedding, bridges_list: &[G]) -> Result<Result<Self, usize>, FullMapError> {
         let h = embedding.to_graph();
         let h_nodes = h.nodes();
         let mut faces = FM::new();
@@ -292,6 +308,7 @@ impl<G: Graph, S: Intset, SM, BM, FM> TorusSearcher<G, S, SM, BM, FM>
         for (i, _) in &faces {
             admissible_bridges.insert(i, SM::Output::new());
         }
+        let mut bridge_count = 0;
         for (i, bridge) in &bridges {
             admissible_faces.insert(i, SM::Output::new());
             for (j, face) in &faces {
@@ -302,12 +319,13 @@ impl<G: Graph, S: Intset, SM, BM, FM> TorusSearcher<G, S, SM, BM, FM>
                 }
             }
             if admissible_faces[i].is_empty() {
-                return Ok(None)
+                return Ok(Err(bridges_list.len() - bridge_count + bridge.edges().count()-1))
             } else if admissible_faces[i].count() == 1 {
                 one_admissible.set(i);
             }
+            bridge_count += 1;
         }
-        Ok(Some(Self {
+        Ok(Ok(Self {
             embedding,
             admissible_faces,
             admissible_bridges,
@@ -437,11 +455,13 @@ impl<G: Graph, S: Intset, SM, BM, FM> TorusSearcher<G, S, SM, BM, FM>
                 }
             }
 
-            if ok && self.search()? {
-                return Ok(true)
-            } else {
-                self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
+            if !ok {
+                self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count()+1);
             }
+            else if ok && self.search()? {
+                return Ok(true)
+            }
+
             self.h.del_edge(start, end);
             self.h.del_node(end);
             self.h_nodes.clear(end);
@@ -514,11 +534,14 @@ impl<G: Graph, S: Intset, SM, BM, FM> TorusSearcher<G, S, SM, BM, FM>
                                 }
                             }
                         }
-
-                        if ok && self.search()? {
+                        if !ok {
+                            if self.h.is_supergraph(&bridge) {
+                                self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
+                            } else {
+                                self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count()+1);
+                            }
+                        } else if ok && self.search()? {
                             return Ok(true)
-                        } else {
-                            self.bridges_rem = std::cmp::min(self.bridges_rem, self.bridges.count());
                         }
 
                         self.h = oldh;
