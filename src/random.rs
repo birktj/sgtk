@@ -8,13 +8,14 @@ pub fn graph<G: Graph>(n: usize) -> G {
         graph.add_node(i);
     }
 
-    let edge_ratio = rand::thread_rng().gen_range(0.0..=1.0);
-    let edge_count = ((n*(n+1) / 2) as f32 * edge_ratio) as usize;
+    let edge_ratio = 0.5; // rand::thread_rng().gen_range(0.0..=1.0);
 
-    for _ in 0..edge_count {
-        let u = rand::thread_rng().gen_range(1..n);
-        let v = rand::thread_rng().gen_range(0..u);
-        graph.add_edge(u, v);
+    for u in 0..n {
+        for v in 0..u {
+            if rand::thread_rng().gen_bool(edge_ratio) {
+                graph.add_edge(u, v);
+            }
+        }
     }
 
     graph
