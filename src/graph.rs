@@ -625,6 +625,7 @@ impl<B: Bitset<Perm = SmallPerm<N>> + Copy, const N: usize> std::fmt::Debug for 
     }
 }
 
+#[derive(Clone)]
 pub struct EdgeIter<'a, G: Graph> {
     g: &'a G,
     u: usize,
