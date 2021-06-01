@@ -3,6 +3,7 @@ use sgtk::prelude::*;
 use std::collections::{HashSet, HashMap};
 use std::path::PathBuf;
 use std::io::Write;
+use std::time::{Instant, Duration};
 use structopt::StructOpt;
 use anyhow::{anyhow, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -29,14 +30,26 @@ struct Opt {
     /// Convert new obstructions to canonical form
     #[structopt(long)]
     to_canonical: bool,
-
+    /// Do timing tests
+    #[structopt(long)]
+    time: bool,
+    /// Input graph is in upper triangle format
+    #[structopt(long)]
+    triangle: bool,
 }
 
 fn is_obstruction(graph: &Graph32) -> bool {
+    for u in graph.nodes() {
+        if graph.siblings(u).count() < 3 {
+            return false
+        }
+    }
     if sgtk::toroidal::find_embedding(graph).is_some() {
         return false
     }
-    for subgraph in subgraphs(graph) {
+    for (u, v) in graph.edges() {
+        let mut subgraph = graph.clone();
+        subgraph.del_edge(u, v);
         if sgtk::toroidal::find_embedding(&subgraph).is_none() {
             return false
         }
@@ -55,6 +68,48 @@ fn is_minor_obstruction(graph: &Graph32) -> bool {
     }
 
     true
+}
+
+struct TimingStats {
+    times: Vec<Vec<Duration>>,
+}
+
+impl TimingStats {
+    fn new() -> Self {
+        Self {
+            times: vec![Vec::new(); 32],
+        }
+    }
+
+    fn time_graph<G: Graph, R, F: FnOnce(G) -> R>(&mut self, graph: G, f: F) -> R {
+        let nodes = graph.nodes().count();
+        let now = Instant::now();
+        let res = f(graph);
+        let duration = now.elapsed();
+        self.times[nodes].push(duration);
+        res
+    }
+
+    fn print(&self, title: &str) {
+        eprintln!("{}\n", style(title).bold());
+        eprintln!("{:>10} {:>10} {:>10} {:>10} {:>10}", style("Vertices").bold(), style("Avg").bold(), style("Max").bold(), style("Min"), style("Total"));
+        for (n, times) in self.times.iter().enumerate() {
+            if !times.is_empty() {
+                let mut avg = Duration::new(0,0);
+                let mut max = Duration::new(0,0);
+                let mut min = Duration::new(1000,0);
+                let mut total = Duration::new(0,0);
+                for time in times {
+                    avg += *time;
+                    max = std::cmp::max(max, *time);
+                    min = std::cmp::min(min, *time);
+                    total += *time;
+                }
+                avg /= times.len() as u32;
+                eprintln!("{:>10} {:>10} {:>10} {:>10} {:>10}", n, avg.as_micros(), max.as_micros(), min.as_micros(), total.as_micros());
+            }
+        }
+    }
 }
 
 struct Stats {
@@ -130,6 +185,8 @@ fn main() -> Result<()> {
     let mut unknown_obstructions = Stats::new();
     let mut unknown_minors = Stats::new();
 
+    let mut check_obstructions_timer = TimingStats::new();
+
     let mut graph_is_obstruction = HashMap::new();
     let mut graph_is_minor = HashMap::new();
 
@@ -142,13 +199,23 @@ fn main() -> Result<()> {
         bar.set_style(progress_style.clone());
         bar.set_prefix(&format!("[{:width$}/{:width$}] ", i+1, opt.new_obstructions.len(), width = num_len));
         for line in file.lines() {
-            let mut graph = sgtk::parse::from_graph6::<Graph32>(line);
+            let mut graph = if opt.triangle {
+                sgtk::parse::from_upper_tri::<Graph32>(line)
+                    .ok_or(anyhow!("Known obstruction contains more than 32 vertices"))?
+            } else {
+                sgtk::parse::from_graph6::<Graph32>(line)
+            };
             if opt.to_canonical {
                 graph = graph.to_canonical();
             }
             
             if !graph_is_obstruction.contains_key(&graph) {
-                graph_is_obstruction.insert(graph, !opt.check || is_obstruction(&graph));
+                if opt.check {
+                    let is_obs = check_obstructions_timer.time_graph(graph.clone(), |g| is_obstruction(&g));
+                    graph_is_obstruction.insert(graph, is_obs);
+                } else {
+                    graph_is_obstruction.insert(graph, true);
+                }
                 if opt.check_minor && !graph_is_minor.contains_key(&graph) {
                     graph_is_minor.insert(graph, is_minor_obstruction(&graph));
                 }
@@ -183,6 +250,10 @@ fn main() -> Result<()> {
     }
     if !unknown_minors.graphs.is_empty() {
         unknown_minors.print("Unknown minors");
+    }
+
+    if opt.time {
+        check_obstructions_timer.print("Time to check obstructions");
     }
 
     if !unknown_obstructions.graphs.is_empty() {
