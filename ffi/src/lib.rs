@@ -302,7 +302,7 @@ pub extern "C" fn sgtk_graph16_prune_toroidal(n: u32, maxn: u32, graph: *const u
             0
         } else { // if res.remainding_bridges <= 1 {
             level_data.borrow_mut().num_check_obs += 1;
-            if is_obstruction(&graph, k.clone(), &level_data.borrow().subgraph_embeddings[n-1]) {
+            if is_obstruction(&graph, k.clone(), &[]) { //level_data.borrow().subgraph_embeddings[n-1]) {
                 println!("{}", sgtk::parse::to_graph6(&graph));
             }
             level_data.borrow_mut().num_non_toroidal += 1;
