@@ -50,6 +50,8 @@ pub trait Bitset: Intset + Eq + Clone {
 
     fn enumerate(maxn: usize) -> Self::Enumerate;
 
+    fn enumerate_mask(mask: Self) -> Self::Enumerate;
+
     fn shuffle(&mut self, permutation: &Self::Perm);
 
     fn iter(&self) -> Self::Iter;
@@ -180,14 +182,24 @@ macro_rules! bit_set {
 
             #[inline]
             fn enumerate(maxn: usize) -> $iter_enum {
-                let maxval = if maxn == $size {
+                let mask = if maxn == $size {
                     <$type>::MAX
                 } else {
-                    1 << maxn
+                    (1 << maxn) - 1
                 };
 
                 $iter_enum {
-                    maxval,
+                    mask,
+                    curr: 0,
+                    finished: false,
+                    last: None,
+                }
+            }
+
+            #[inline]
+            fn enumerate_mask(mask: Self) -> $iter_enum {
+                $iter_enum {
+                    mask: mask.bitset,
                     curr: 0,
                     finished: false,
                     last: None,
@@ -276,7 +288,7 @@ macro_rules! bit_set {
         }
 
         pub struct $iter_enum {
-            maxval: $type,
+            mask: $type,
             curr: $type,
             finished: bool,
             last: Option<$name>,
@@ -291,9 +303,11 @@ macro_rules! bit_set {
                     return self.last.take()
                 }
                 let res = $name::$from_ty(self.curr);
-                self.curr += 1;
+                self.curr |= !self.mask;
+                self.curr = self.curr.wrapping_add(1);
+                self.curr &= self.mask;
 
-                if self.curr >= self.maxval {
+                if self.curr == 0 {
                     self.finished = true;
                     self.last = Some($name::$from_ty(self.curr));
                 }
