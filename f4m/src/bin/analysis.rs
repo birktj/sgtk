@@ -8,10 +8,13 @@ use structopt::StructOpt;
 use anyhow::{anyhow, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
 use console::style;
+use f4m::{Stats, TimingStats};
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "f4m-analysis", about = "Tool to analyse toroidal obstructions.")]
 struct Opt {
+    #[structopt(long)]
+    print_edge_count: bool,
     /// Known torus obstrutions in upper triangle format
     #[structopt(short, long, parse(from_os_str))]
     known_obstructions: Option<PathBuf>,
@@ -68,90 +71,6 @@ fn is_minor_obstruction(graph: &Graph32) -> bool {
     }
 
     true
-}
-
-struct TimingStats {
-    times: Vec<Vec<Duration>>,
-}
-
-impl TimingStats {
-    fn new() -> Self {
-        Self {
-            times: vec![Vec::new(); 32],
-        }
-    }
-
-    fn time_graph<G: Graph, R, F: FnOnce(G) -> R>(&mut self, graph: G, f: F) -> R {
-        let nodes = graph.nodes().count();
-        let now = Instant::now();
-        let res = f(graph);
-        let duration = now.elapsed();
-        self.times[nodes].push(duration);
-        res
-    }
-
-    fn print(&self, title: &str) {
-        eprintln!("{}\n", style(title).bold());
-        eprintln!("{:>10} {:>10} {:>10} {:>10} {:>10}", style("Vertices").bold(), style("Avg").bold(), style("Max").bold(), style("Min"), style("Total"));
-        for (n, times) in self.times.iter().enumerate() {
-            if !times.is_empty() {
-                let mut avg = Duration::new(0,0);
-                let mut max = Duration::new(0,0);
-                let mut min = Duration::new(1000,0);
-                let mut total = Duration::new(0,0);
-                for time in times {
-                    avg += *time;
-                    max = std::cmp::max(max, *time);
-                    min = std::cmp::min(min, *time);
-                    total += *time;
-                }
-                avg /= times.len() as u32;
-                eprintln!("{:>10} {:>10} {:>10} {:>10} {:>10}", n, avg.as_micros(), max.as_micros(), min.as_micros(), total.as_micros());
-            }
-        }
-    }
-}
-
-struct Stats {
-    graphs: HashSet<Graph32>,
-    unique_count: Vec<usize>,
-    found_count: Vec<usize>,
-}
-
-impl Stats {
-    fn new() -> Stats {
-        Stats {
-            graphs: HashSet::new(),
-            found_count: vec![0; 32],
-            unique_count: vec![0; 32],
-        }
-    }
-
-    fn add_graph(&mut self, graph: Graph32) {
-        self.found_count[graph.nodes().count()] += 1;
-        if !self.graphs.contains(&graph) {
-            self.unique_count[graph.nodes().count()] += 1;
-        }
-        self.graphs.insert(graph);
-    }
-
-    fn print(&self, title: &str) {
-        eprintln!("{}\n", style(title).bold());
-
-        eprintln!("{:>10} {:>10} {:>10}", style("Vertices").bold(), style("Found").bold(), style("Unique").bold());
-
-        for (v, (fc, uc)) in self.found_count.iter().zip(self.unique_count.iter()).enumerate() {
-            if *fc > 0 || *uc > 0 {
-                eprintln!("{:>10} {:>10} {:>10}", v, fc, uc);
-            }
-        }
-        
-        let fc_tot: usize = self.found_count.iter().sum();
-        let uc_tot: usize = self.unique_count.iter().sum();
-        eprintln!("{:>10} {:>10} {:>10}", "total", fc_tot, uc_tot);
-
-        eprintln!("");
-    }
 }
 
 
@@ -246,10 +165,18 @@ fn main() -> Result<()> {
     }
 
     if !unknown_obstructions.graphs.is_empty() {
-        unknown_obstructions.print("Unknown obstructions");
+        if opt.print_edge_count {
+            unknown_obstructions.print_edges("Unknown obstructions");
+        } else {
+            unknown_obstructions.print("Unknown obstructions");
+        }
     }
     if !unknown_minors.graphs.is_empty() {
-        unknown_minors.print("Unknown minors");
+        if opt.print_edge_count {
+            unknown_minors.print_edges("Unknown minors");
+        } else {
+            unknown_minors.print("Unknown minors");
+        }
     }
 
     if opt.time {

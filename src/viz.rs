@@ -8,6 +8,20 @@ pub struct GraphvizOptions {
 
 //pub fn graph2dot<G: Graph>(graphs: &[(G, Option<Coloring16>)]) -> String {
 
+pub fn graph2tikz<G: Graph>(graph: &G) -> String {
+    use std::fmt::Write;
+    let mut tikz = String::new();
+    write!(tikz, "\\tikz \\graph[spring electrical layout]{{\n").unwrap();
+    for u in graph.nodes().iter() {
+        write!(tikz, "{};\n", u).unwrap();
+    }
+    for (u, v) in graph.edges() {
+        write!(tikz, "{}--{};\n", u, v).unwrap();
+    }
+    write!(tikz, "}};\n").unwrap();
+    tikz
+}
+
 pub fn graph2dot<G: Graph>(graphs: &[G]) -> String {
     use std::fmt::Write;
     let mut dot = String::new();
