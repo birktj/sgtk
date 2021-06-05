@@ -9,9 +9,10 @@ searching for torus obstructions. This library and its accomponying tools
 should be useful for others working on the same problem and might also be
 useful for other problems in computational  graph enumeration.
 
-The most complete list of known torus embeddings is available from [Wendy
+The most complete list of known torus obstructions is available from [Wendy
 Myrvold's page][1]. `f4m/all-new.txt` is the list of previously unknown
-obsturctions that have been found with this tool.
+obsturctions that have been found with the tools in this repo, they have not
+yet been added to Myrvold's list.
 
 The `f4m` folder contains a selection of tools to help with this. The `ffi`
 folder contains the implemntation of a simple algorithm that can be combined
